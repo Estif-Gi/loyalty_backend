@@ -11,7 +11,10 @@ app.use((req, res, next) => {
     console.log("message: API called ->", req.method, req.originalUrl);
     next();
 });
-
+app.use("/" , (req , res , next) => {
+    res.send({message:"lets get loyalty started"});
+    next();
+});
 app.use("/api/users" , require("./routes/users"));
 app.use("/api/restaurants" , require("./routes/restaurants"));
 app.use("/api/menus" , require("./routes/menus"));
