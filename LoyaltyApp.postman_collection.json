@@ -1,0 +1,596 @@
+{
+	"info": {
+		"_postman_id": "76313175-fb18-47c3-8f0d-4076e6de3bb1",
+		"name": "Loyalty App API",
+		"description": "API collection for the Loyalty App Backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"John Doe\",\n    \"phone\": \"+1234567890\",\n    \"password\": \"password123\",\n    \"role\": \"owner\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"phone\": \"+1234567890\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Stamps",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerId\": \"<CUSTOMER_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"stampsToAdd\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/stamps",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"stamps"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/<USER_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"<USER_ID>"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Restaurants",
+			"item": [
+				{
+					"name": "Create Restaurant",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Pizza Palace\",\n    \"phone\": \"+1987654321\",\n    \"location\": \"123 Main St\",\n    \"themeColor\": \"#ff0000\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Restaurant Details",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"themeColor\": \"#00ff00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Logo",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "logo",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>/logo",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>",
+								"logo"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Menus",
+			"item": [
+				{
+					"name": "Create Menu",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"items\": [\n        {\n            \"name\": \"Cheese Pizza\",\n            \"description\": \"Classic cheese pizza\",\n            \"price\": 12.99\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/menus",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"menus"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Menu by Restaurant",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/menus/restaurant/<RESTAURANT_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"menus",
+								"restaurant",
+								"<RESTAURANT_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Menu Items",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"items\": [\n        {\n            \"name\": \"Pepperoni Pizza\",\n            \"description\": \"Pizza with pepperoni\",\n            \"price\": 14.99\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/menus/<MENU_ID>/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"menus",
+								"<MENU_ID>",
+								"items"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Loyalty Programs",
+			"item": [
+				{
+					"name": "Setup Program",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"rewards\": [\n        {\n            \"stampsRequired\": 10,\n            \"rewardDescription\": \"Free Pizza\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/loyalty",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"loyalty"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Program by Restaurant",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/loyalty/restaurant/<RESTAURANT_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"loyalty",
+								"restaurant",
+								"<RESTAURANT_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Program",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"rewards\": [\n        {\n            \"stampsRequired\": 5,\n            \"rewardDescription\": \"Free Drink\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/loyalty/<PROGRAM_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"loyalty",
+								"<PROGRAM_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Reward",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stampsRequired\": 5,\n    \"rewardDescription\": \"20% discount\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/loyalty/<PROGRAM_ID>/rewards",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"loyalty",
+								"<PROGRAM_ID>",
+								"rewards"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Reward",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/loyalty/<PROGRAM_ID>/rewards/<REWARD_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"loyalty",
+								"<PROGRAM_ID>",
+								"rewards",
+								"<REWARD_ID>"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "Create Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/notifications",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"notifications"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Notifications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/notifications",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"notifications"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5001"
+		},
+		{
+			"key": "token",
+			"value": "YOUR_JWT_TOKEN_HERE"
+		}
+	]
+}
