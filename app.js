@@ -27,8 +27,11 @@ app.use("/api", async (req, res, next) => {
         await connectDb();
         next();
     } catch (error) {
-        console.error("DB connection error:", error);
-        res.status(500).json({ message: "Database connection failed" });
+        console.error("DB connection error:", error.message);
+        res.status(500).json({
+            message: "Database connection failed",
+            reason: process.env.NODE_ENV === "production" ? undefined : error.message
+        });
     }
 });
 
