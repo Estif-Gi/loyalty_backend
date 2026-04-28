@@ -36,7 +36,7 @@ exports.createMenu = async (req, res) => {
 exports.getMenuByRestaurant = async (req, res) => {
     try {
         const menus = await Menu.find({ restaurant: req.params.restaurantId });
-        res.json(menus);
+        res.json(menus); 
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
