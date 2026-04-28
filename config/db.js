@@ -5,15 +5,10 @@ let cachedPromise = null;
 
 function getMongoUri() {
     const rawUri =
-        process.env.MONGODB_URI ||
-        process.env.MONGO_URI ||
-        process.env.MONGODB_URL;
-
-    if (!rawUri) {
-        throw new Error("MongoDB URI env var is missing (MONGODB_URI/MONGO_URI/MONGODB_URL)");
-    }
-
-    return rawUri.trim().replace(/^['"]|['"]$/g, "");
+        process.env.DB_USER
+        process.env.DB_PASSWORD
+        process.env.DB_NAME
+    return `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@loyaltyapp.uno2z8g.mongodb.net/?appName=${process.env.DB_NAME}`
 }
 
 async function connectDb() {
@@ -24,12 +19,12 @@ async function connectDb() {
     const mongoUri = getMongoUri();
 
     if (!cachedPromise) {
-        cachedPromise = mongoose.connect(mongoUri, {
+        cachedPromise = mongoose.connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@loyaltyapp.uno2z8g.mongodb.net/?appName=${process.env.DB_NAME}`, {
             bufferCommands: false,
             serverSelectionTimeoutMS: 10000
         });
     }
-
+    
     cachedConnection = await cachedPromise;
     return cachedConnection;
 }
