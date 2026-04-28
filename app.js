@@ -38,7 +38,7 @@ mongoose.connect(process.env.MONGODB_URI)
         console.log("****Connected to MongoDB****");
         if (process.env.NODE_ENV !== "production") {
             app.listen(process.env.PORT || 5001);
-        }
+        } 
     })
     .catch(err => {
         console.log("//////Failed to connect to MongoDB:///////", err);
