@@ -1,19 +1,18 @@
+const mongoose = require('mongoose');
 const Restaurant = require('../model/restaurant');
 
 exports.createRestaurant = async (req, res) => {
+    const { name, phone, location, themeColor } = req.body;
+    // User must be an owner to create a restaurant
+    const owner = req.user.id;
+    const restaurant = new Restaurant({
+        name,
+        phone,
+        location,
+        themeColor,
+        owner
+    });
     try {
-        const { name, phone, location, themeColor } = req.body;
-        // User must be an owner to create a restaurant
-        const owner = req.user.id;
-
-        const restaurant = new Restaurant({
-            name,
-            phone,
-            location,
-            themeColor,
-            owner
-        });
-
         await restaurant.save();
         res.status(201).json(restaurant);
     } catch (error) {
@@ -23,8 +22,13 @@ exports.createRestaurant = async (req, res) => {
 };
 
 exports.getRestaurant = async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ message: 'Invalid restaurant ID format' });
+    }
     try {
-        const restaurant = await Restaurant.findById(req.params.id)
+
+        const restaurant = await Restaurant.findById(id)
             .select('-notifications -menu -loyaltyProgram');
             
         if (!restaurant) {
@@ -63,8 +67,8 @@ exports.updateLogo = async (req, res) => {
 };
 
 exports.updateRestaurant = async (req, res) => {
+    const { name, phone, location, themeColor } = req.body;
     try {
-        const { name, phone, location, themeColor } = req.body;
         const restaurant = await Restaurant.findById(req.params.id);
 
         if (!restaurant) {
