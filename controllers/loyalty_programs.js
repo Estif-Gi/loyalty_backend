@@ -39,12 +39,17 @@ exports.getProgramByRestaurant = async (req, res) => {
             return res.status(404).json({ message: 'Loyalty program not found' });
         }
 
-        const restaurant = await Restaurant.findById(req.params.restaurantId).select('themeColor');
+        const restaurant = await Restaurant.findById(req.params.restaurantId).select('themeColor name location');
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        res.json({ themeColor: restaurant.themeColor, programs });
+        res.json({
+            themeColor: restaurant.themeColor,
+            name: restaurant.name,
+            location: restaurant.location,
+            programs
+        });
     } catch (error) {
         console.error("🔥 Error in getProgramByRestaurant:", error);
         res.status(500).json({ message: 'Server error', error: error.message });
