@@ -105,7 +105,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"customerId\": \"<CUSTOMER_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"stampsToAdd\": 1\n}"
+							"raw": "{\n    \"customerId\": \"<CUSTOMER_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"stampsToAdd\": 1,\n    \"loyaltyProgram\": \"<LOYALTY_PROGRAM_ID>\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/users/stamps",

@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
         const payload = { id: user._id, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.status(201).json({ token, user: { id: user._id, name: user.name, role: user.role , loyalTo: user.loyalTo} });
+        res.status(201).json({ token, user: { id: user._id, name: user.name, role: user.role, loyalTo: user.loyalTo.map(l => ({ resID: l.resID, resName: l.resName, programID: l.programID, stamps: l.stamps })) } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -56,7 +56,7 @@ exports.login = async (req, res) => {
         const payload = { id: user._id, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ token, user: { id: user._id, name: user.name, role: user.role, loyalTo: user.loyalTo } });
+        res.json({ token, user: { id: user._id, name: user.name, role: user.role, loyalTo: user.loyalTo.map(l => ({ resID: l.resID, resName: l.resName, programID: l.programID, stamps: l.stamps })) } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -86,7 +86,7 @@ exports.getProfile = async (req, res) => {
 
 exports.addStamps = async (req, res) => {
     try {
-        const { customerId, restaurantId, stampsToAdd } = req.body;
+        const { customerId, restaurantId, stampsToAdd , loyaltyProgram } = req.body;
         
         // Ensure stampsToAdd is positive
         if (!stampsToAdd || stampsToAdd <= 0) {
@@ -110,10 +110,15 @@ exports.addStamps = async (req, res) => {
             // Update existing
             customer.loyalTo[loyaltyIndex].stamps += stampsToAdd;
         } else {
+            if (!loyaltyProgram) {
+                return res.status(400).json({ message: 'Loyalty program ID is required for new loyalty records' });
+            }
+
             // Add new record
             customer.loyalTo.push({
                 resID: restaurant._id,
                 resName: restaurant.name,
+                programID: loyaltyProgram,
                 stamps: stampsToAdd
             });
         }
