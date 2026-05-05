@@ -16,4 +16,9 @@ router.patch('/:id/logo', verifyToken, checkRole('owner', 'manager', 'employee')
 // Update other details (owner, manager)
 router.patch('/:id', verifyToken, checkRole('owner', 'manager'), restaurantsController.updateRestaurant);
 
+// List restaurant employees (owner, manager)
+router.get('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaurantsController.getEmployees);
+
+// Create restaurant employee (owner)
+router.post('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaurantsController.createEmployee);
 module.exports = router;
