@@ -14,7 +14,8 @@ const userSchema = new Schema({
         programID:  { type: Schema.Types.ObjectId, ref: 'LoyaltyProgram', required: true },
         resName: { type: String  },
         stamps: {  type: Number, default: 0, min: 0 }
-    }]
+    }],
+    fcmToken: { type: String, default: null }
 }, { timestamps: true }); // Good practice for tracking user creation
 
 module.exports = mongoose.model("User", userSchema);

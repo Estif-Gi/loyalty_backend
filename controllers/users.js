@@ -154,3 +154,23 @@ exports.getUserById = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+/**
+ * PATCH /api/users/fcm-token
+ * Saves (or refreshes) the caller's FCM registration token so the server
+ * can target this device with push notifications.
+ */
+exports.saveFcmToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        if (!fcmToken) {
+            return res.status(400).json({ message: 'fcmToken is required' });
+        }
+
+        await User.findByIdAndUpdate(req.user.id, { fcmToken });
+        res.json({ message: 'FCM token saved' });
+    } catch (error) {
+        console.error('🔥 Error in saveFcmToken:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

@@ -16,4 +16,7 @@ router.get('/', verifyToken, checkRole('admin', 'owner'), usersController.getAll
 // Get user by ID (admin or owner only)
 router.get('/:id', verifyToken, checkRole('admin', 'owner'), usersController.getUserById);
 
+// Save / refresh FCM push token (any authenticated user)
+router.patch('/fcm-token', verifyToken, usersController.saveFcmToken);
+
 module.exports = router;
