@@ -38,7 +38,7 @@ exports.getRestaurant = async (req, res) => {
         res.json(restaurant);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error' }); 
     }
 };
 

@@ -167,6 +167,38 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Save FCM Token",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fcmToken\": \"<FCM_TOKEN>\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/fcm-token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"fcm-token"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -285,6 +317,64 @@
 								"restaurants",
 								"<RESTAURANT_ID>",
 								"logo"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Employees",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>/employees",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>",
+								"employees"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Restaurant Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Employee Name\",\n    \"phone\": \"+1234567890\",\n    \"role\": \"employee\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>/employees",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>",
+								"employees"
 							]
 						}
 					},
@@ -547,7 +637,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\"\n}"
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/notifications",
@@ -568,13 +658,19 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/notifications",
+							"raw": "{{baseUrl}}/api/notifications?restaurantId=<RESTAURANT_ID>",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"api",
 								"notifications"
+							],
+							"query": [
+								{
+									"key": "restaurantId",
+									"value": "<RESTAURANT_ID>"
+								}
 							]
 						}
 					},
