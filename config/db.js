@@ -24,7 +24,7 @@ async function connectDb() {
             serverSelectionTimeoutMS: 10000
         });
     }
-    
+     
     cachedConnection = await cachedPromise;
     return cachedConnection;
 }
