@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./loyalty-e883f-firebase-adminsdk-fbsvc-8560d84572.json');
+const serviceAccount = require('../loyalty-e883f-firebase-adminsdk-fbsvc-8560d84572.json');
 
 if (!admin.apps.length) {
     // const serviceAccount = {
