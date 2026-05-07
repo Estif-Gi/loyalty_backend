@@ -3,6 +3,7 @@ node_modules/
 
 # dotenv environment variables
 .env
+loyalty-e883f-firebase-adminsdk-fbsvc-8560d84572.json
 
 # nodemon
 .nodemonignore
