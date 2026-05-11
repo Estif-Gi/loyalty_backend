@@ -348,6 +348,26 @@
 					"response": []
 				},
 				{
+					"name": "Get Restaurant By Employee ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/employee/<EMPLOYEE_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"employee",
+								"<EMPLOYEE_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Create Restaurant Employee",
 					"request": {
 						"method": "POST",

@@ -144,3 +144,30 @@ exports.createEmployee = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+exports.getRestaurantByEmployeeId = async (req, res) => {
+    const { employeeId } = req.params;
+    
+    if (!mongoose.isValidObjectId(employeeId)) {
+        return res.status(400).json({ message: 'Invalid employee ID format' });
+    }
+
+    try {
+        const employee = await Employee.findById(employeeId);
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        const restaurant = await Restaurant.findById(employee.restaurant)
+            .select('-notifications -menu -loyaltyProgram');
+        
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        res.json(restaurant);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
