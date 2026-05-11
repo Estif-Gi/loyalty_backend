@@ -22,6 +22,9 @@ router.get('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaur
 // Get restaurant by employee ID
 router.get('/employee/:employeeId', restaurantsController.getRestaurantByEmployeeId);
 
+// Employee login
+router.post('/employee/login', restaurantsController.employeeLogin);
+
 // Create restaurant employee (owner)
 router.post('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaurantsController.createEmployee);
 module.exports = router;

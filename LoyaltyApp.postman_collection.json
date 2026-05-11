@@ -368,6 +368,35 @@
 					"response": []
 				},
 				{
+					"name": "Employee Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"employeeId\": \"<EMPLOYEE_ID>\",\n    \"password\": \"<PASSWORD>\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/employee/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"employee",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Create Restaurant Employee",
 					"request": {
 						"method": "POST",
