@@ -32,7 +32,7 @@ exports.getRestaurant = async (req, res) => {
     try {
 
         const restaurant = await Restaurant.findById(id)
-            .select('-notifications -menu -loyaltyProgram');
+            .select('-notifications -menu');
             
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
@@ -169,7 +169,7 @@ exports.getRestaurantByEmployeeId = async (req, res) => {
         }
 
         const restaurant = await Restaurant.findById(employee.restaurant)
-            .select('-notifications -menu -loyaltyProgram');
+            .select('-notifications -menu');
         
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
