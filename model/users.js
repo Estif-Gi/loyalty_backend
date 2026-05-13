@@ -11,7 +11,7 @@ const userSchema = new Schema({
         resID: {  type: Schema.Types.ObjectId,  ref: 'Restaurant', required: true },
         // Only keep resName here if you want to avoid 'populating' 
         // every time. If so, it must be a String.
-        programID:  { type: Schema.Types.ObjectId, ref: 'LoyaltyProgram', required: true },
+        programID:  { type: Schema.Types.ObjectId, ref: 'LoyaltyProgram' },
         resName: { type: String  },
         stamps: {  type: Number, default: 0, min: 0 }
     }],

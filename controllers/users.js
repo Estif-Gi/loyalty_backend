@@ -86,8 +86,8 @@ exports.getProfile = async (req, res) => {
 
 exports.addStamps = async (req, res) => {
     try {
-        const { customerId, restaurantId, stampsToAdd , loyaltyProgram } = req.body;
-        
+        const { customerId, restaurantId, stampsToAdd, loyaltyProgram } = req.body;
+
         // Ensure stampsToAdd is positive
         if (!stampsToAdd || stampsToAdd <= 0) {
             return res.status(400).json({ message: 'Invalid stamp amount' });
@@ -109,12 +109,15 @@ exports.addStamps = async (req, res) => {
         if (loyaltyIndex > -1) {
             // Update existing
             customer.loyalTo[loyaltyIndex].stamps += stampsToAdd;
+
+            // ✅ Backfill programID if it was missing (old records before it became required)
+            if (!customer.loyalTo[loyaltyIndex].programID && loyaltyProgram) {
+                customer.loyalTo[loyaltyIndex].programID = loyaltyProgram;
+            }
         } else {
             if (!loyaltyProgram) {
                 return res.status(400).json({ message: 'Loyalty program ID is required for new loyalty records' });
             }
-
-            // Add new record
             customer.loyalTo.push({
                 resID: restaurant._id,
                 resName: restaurant.name,
