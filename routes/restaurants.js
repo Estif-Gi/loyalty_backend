@@ -10,6 +10,10 @@ router.post('/', verifyToken, checkRole('owner'), restaurantsController.createRe
 // Get restaurant details (public)
 router.get('/:id', restaurantsController.getRestaurant);
 
+
+// GET all restaurants (public)
+router.get('/', restaurantsController.getAllRestaurants);
+
 // Upload logo (owner, manager, employee)
 router.patch('/:id/logo', verifyToken, checkRole('owner', 'manager', 'employee'), upload.single('logo'), restaurantsController.updateLogo);
 

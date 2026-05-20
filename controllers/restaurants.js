@@ -24,6 +24,16 @@ exports.createRestaurant = async (req, res) => {
     }
 };
 
+exports.getAllRestaurants = async (req, res) => {
+    try {
+        const restaurants = await Restaurant.find().select('-notifications -menu');
+        res.json(restaurants);
+    } catch (error) {
+        console.error("🔥 Error in getAllRestaurants:", error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 exports.getRestaurant = async (req, res) => {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) {
@@ -134,7 +144,7 @@ exports.createEmployee = async (req, res) => {
         }
 
         const employeeCount = await Employee.countDocuments({ restaurant: id });
-        if (employeeCount >= 5) {
+        if (employeeCount >= 3) {
             return res.status(400).json({ message: 'Restaurant cannot have more than 5 employees' });
         }
 

@@ -2,6 +2,8 @@ const User = require('../model/users');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Restaurant = require('../model/restaurant');
+const { getIo } = require('../sockets/ioInstance');
+const { getSocketId } = require('../sockets/socketManager');
 
 exports.register = async (req, res) => {
     try {
@@ -87,8 +89,8 @@ exports.getProfile = async (req, res) => {
 exports.addStamps = async (req, res) => {
     try {
         const { customerId, restaurantId, stampsToAdd, loyaltyProgram } = req.body;
+        // console.log(`📝 addStamps called: customerId=${customerId}, restaurantId=${restaurantId}, stampsToAdd=${stampsToAdd}`);
 
-        // Ensure stampsToAdd is positive
         if (!stampsToAdd || stampsToAdd <= 0) {
             return res.status(400).json({ message: 'Invalid stamp amount' });
         }
@@ -103,14 +105,11 @@ exports.addStamps = async (req, res) => {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        // Find if user already has loyalty record for this restaurant
         const loyaltyIndex = customer.loyalTo.findIndex(l => l.resID.toString() === restaurantId);
 
         if (loyaltyIndex > -1) {
-            // Update existing
             customer.loyalTo[loyaltyIndex].stamps += stampsToAdd;
 
-            // ✅ Backfill programID if it was missing (old records before it became required)
             if (!customer.loyalTo[loyaltyIndex].programID && loyaltyProgram) {
                 customer.loyalTo[loyaltyIndex].programID = loyaltyProgram;
             }
@@ -127,6 +126,19 @@ exports.addStamps = async (req, res) => {
         }
 
         await customer.save();
+
+        // ── Socket push ──────────────────────────────────────────
+        const io = getIo();
+        const socketId = getSocketId(customer._id);
+
+        if (io && socketId) {
+            io.to(socketId).emit('profileData', {
+                success: true,
+                data: customer.toObject()   // already fresh from save()
+            });
+            console.log(`📡 Pushed stamp update to user ${customer._id}`);
+        }
+        // ────────────────────────────────────────────────────────
 
         res.json({ message: 'Stamps added successfully', loyalTo: customer.loyalTo });
     } catch (error) {
@@ -175,4 +187,20 @@ exports.saveFcmToken = async (req, res) => {
         console.error('🔥 Error in saveFcmToken:', error);
         res.status(500).json({ message: 'Server error' });
     }
+};
+
+// Reusable version for Socket.IO (no req/res — returns plain data)
+exports.getProfileSocket = async (userId) => {
+    const User = require('../model/users');
+    const Restaurant = require('../model/restaurant');
+
+    const user = await User.findById(userId).select('-password').lean();
+    if (!user) throw new Error('User not found');
+
+    if (['owner', 'manager', 'employee'].includes(user.role)) {
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        if (restaurant) user.restaurantId = restaurant._id;
+    }
+
+    return user;
 };
