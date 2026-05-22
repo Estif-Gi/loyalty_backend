@@ -10,6 +10,7 @@ const app = express();
 
 const allowedOrigins = [
   "https://loyalty-customer.vercel.app",
+  "https://loyal.bahirandelivery.com",
   "https://loyal-employee.vercel.app",
   "http://localhost:8081",
   "http://localhost:8080",
