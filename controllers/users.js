@@ -3,7 +3,6 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Restaurant = require('../model/restaurant');
 const { getIo } = require('../sockets/ioInstance');
-const { getSocketId } = require('../sockets/socketManager');
 
 exports.register = async (req, res) => {
     try {
@@ -129,14 +128,16 @@ exports.addStamps = async (req, res) => {
 
         // ── Socket push ──────────────────────────────────────────
         const io = getIo();
-        const socketId = getSocketId(customer._id);
+        const userRoom = customer._id.toString();
 
-        if (io && socketId) {
-            io.to(socketId).emit('profileData', {
+        if (io) {
+            io.to(userRoom).emit('profileData', {
                 success: true,
                 data: customer.toObject()   // already fresh from save()
             });
-            console.log(`📡 Pushed stamp update to user ${customer._id}`);
+            console.log(`📡 Pushed stamp update to user room ${userRoom}`);
+        } else {
+            console.warn(`⚠️ Socket.IO instance not initialized for user ${customer._id}`);
         }
         // ────────────────────────────────────────────────────────
 

@@ -4,8 +4,9 @@ const { registerUser, removeUser } = require('./socketManager');
 function registerUserSockets(socket) {
   const userId = socket.user.id;
 
-  // Register this user's socket
+  // Register this user's socket and join a user-specific room
   registerUser(userId, socket.id);
+  socket.join(userId.toString());
   console.log(`✅ Socket connected: ${socket.id} | user: ${userId}`);
 
   socket.on('getProfile', async () => {
@@ -18,7 +19,7 @@ function registerUserSockets(socket) {
   });
 
   socket.on('disconnect', () => {
-    removeUser(userId);   // ← clean up on disconnect
+    removeUser(userId, socket.id);   // ← clean up only this socket
     console.log(`❌ Socket disconnected: ${socket.id}`);
   });
 }
