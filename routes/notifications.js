@@ -11,6 +11,13 @@ router.post(
   notificationsController.createNotification
 );
 
+router.post(
+  '/targeted',
+  verifyToken,
+  checkRole('owner', 'manager', 'employee'),
+  notificationsController.createStampNotification
+);
+
 router.get(
   '/',
   verifyToken,

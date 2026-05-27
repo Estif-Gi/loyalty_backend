@@ -12,6 +12,12 @@ const notificationSchema = new Schema({
   sentCount:    { type: Number, default: 0 },       // FCM successCount
   failedCount:  { type: Number, default: 0 },       // FCM failureCount
   status:       { type: String, enum: ["pending", "sent", "failed"], default: "pending" },
+  // Optional targeting by stamp count and any stamp modification action performed
+  targetMinStamps: { type: Number },
+  stampAction: {
+    type: { type: String, enum: ['inc','dec','set'], required: false },
+    value: { type: Number, required: false }
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Notification", notificationSchema);
