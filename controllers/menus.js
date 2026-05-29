@@ -120,16 +120,17 @@ exports.updateMenu = async (req, res) => {
 exports.removeMenuItems = async (req, res) => {
     try {
         const { itemIds } = req.body; // expect array of subdocument ids
+        
+        if (!Array.isArray(itemIds) || itemIds.length === 0) {
+            return res.status(400).json({ message: 'itemIds must be a non-empty array' });
+        }
+
         const menu = await Menu.findById(req.params.id).populate('restaurant');
         if (!menu) return res.status(404).json({ message: 'Menu not found' });
 
         const restaurant = menu.restaurant;
         if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Not authorized' });
-        }
-
-        if (!Array.isArray(itemIds) || itemIds.length === 0) {
-            return res.status(400).json({ message: 'itemIds array required' });
         }
 
         const updatedMenu = await Menu.findByIdAndUpdate(

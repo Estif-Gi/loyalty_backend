@@ -16,7 +16,7 @@ router.patch('/:id/items', verifyToken, checkRole('owner', 'manager', 'employee'
 router.patch('/:id/items/:itemId', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.updateMenuItem);
 
 // Remove specific items from a menu
-router.patch('/:id/items/remove', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.removeMenuItems);
+router.delete('/:id/items', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.removeMenuItems);
 
 // Update a menu (replace fields like `items`)
 router.put('/:id', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.updateMenu);
