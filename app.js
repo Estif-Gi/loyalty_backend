@@ -23,7 +23,9 @@ const allowedOrigins = [
   "https://loyal-employee.vercel.app",
   "http://localhost:8081",
   "http://localhost:8080",
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "https://getloyal.bahirandelivery.com"
 ];
 
 // 1. CORS — must be first
