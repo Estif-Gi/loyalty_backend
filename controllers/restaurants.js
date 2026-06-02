@@ -3,6 +3,7 @@ const Restaurant = require('../model/restaurant');
 const Employee = require('../model/employee');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { getRestaurantAndLimits } = require('../utils/billingLimits');
 
 exports.createRestaurant = async (req, res) => {
     const { name, phone, location, themeColor } = req.body;
@@ -104,7 +105,7 @@ exports.updateLogo = async (req, res) => {
 };
 
 exports.updateRestaurant = async (req, res) => {
-    const { name, phone, location, themeColor } = req.body;
+    const { name, phone, location, themeColor, billingStatus } = req.body;
     try {
         const restaurant = await Restaurant.findById(req.params.id);
 
@@ -120,12 +121,13 @@ exports.updateRestaurant = async (req, res) => {
         if (phone) restaurant.phone = phone;
         if (location) restaurant.location = location;
         if (themeColor) restaurant.themeColor = themeColor;
+        if (billingStatus) restaurant.billingStatus = billingStatus;
 
         await restaurant.save();
         res.json(restaurant);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error("🔥 Error in updateRestaurant:", error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
@@ -133,19 +135,22 @@ exports.createEmployee = async (req, res) => {
     const { name, password } = req.body;
     const { id } = req.params;
 
+    if (!name || !password) {
+        return res.status(400).json({ message: 'Name and password are required' });
+    }
+
     try {
-        const restaurant = await Restaurant.findById(id);
-        if (!restaurant) {
-            return res.status(404).json({ message: 'Restaurant not found' });
-        }
+        const { restaurant, limits, tier } = await getRestaurantAndLimits(id);
 
         if (restaurant.owner.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
         const employeeCount = await Employee.countDocuments({ restaurant: id });
-        if (employeeCount >= 3) {
-            return res.status(400).json({ message: 'Restaurant cannot have more than 5 employees' });
+        if (employeeCount >= limits.staff) {
+            return res.status(400).json({ 
+                message: `Staff account limit reached (${employeeCount}/${limits.staff} accounts) for the ${tier.toUpperCase()} tier. Please upgrade your subscription.` 
+            });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -158,10 +163,15 @@ exports.createEmployee = async (req, res) => {
         });
 
         await employee.save();
+
+        // Keep employeeCount synchronized in the Restaurant document
+        restaurant.employeeCount = employeeCount + 1;
+        await restaurant.save();
+
         res.status(201).json(employee);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error("🔥 Error in createEmployee:", error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 

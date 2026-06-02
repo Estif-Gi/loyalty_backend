@@ -4,6 +4,7 @@ const Restaurant = require('../model/restaurant');
 const User = require('../model/users');
 const admin = require('../config/firebase-admin');
 const mongoose = require('mongoose');
+const { getRestaurantAndLimits } = require('../utils/billingLimits');
 
 async function dispatchNotification({ notificationId, tokens, title, description, url }) {
   let fcmResult = { successCount: 0, failureCount: 0, total: tokens.length };
@@ -59,17 +60,70 @@ async function dispatchNotification({ notificationId, tokens, title, description
   return fcmResultFinal;
 }
 
+async function updateRestaurantPushStats(restaurantId) {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const startOfLastMonth = new Date();
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+    startOfLastMonth.setDate(1);
+    startOfLastMonth.setHours(0, 0, 0, 0);
+
+    const endOfLastMonth = new Date(startOfMonth.getTime() - 1);
+
+    const thisMonthCount = await Notification.countDocuments({
+      restaurantId,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    const lastMonthCount = await Notification.countDocuments({
+      restaurantId,
+      createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+    });
+
+    const totalCount = await Notification.countDocuments({ restaurantId });
+
+    await Restaurant.findByIdAndUpdate(restaurantId, {
+      'pushNotificationsStats.thisMonth': thisMonthCount,
+      'pushNotificationsStats.lastMonth': lastMonthCount,
+      'pushNotificationsStats.total': totalCount
+    });
+  } catch (error) {
+    console.error('🔥 Failed to update push stats:', error);
+  }
+}
+
 exports.createNotification = async (req, res) => {
   try {
     const { restaurantId, title, description, url } = req.body;
 
-    // ── Validate restaurant & ownership ──────────────────────────────────
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found' });
-    }
+    // ── Validate restaurant, billing limits & ownership ──────────────────
+    const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
     if (restaurant.owner.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (limits.notifications === 0) {
+      return res.status(400).json({
+        message: `Your subscription tier (${tier.toUpperCase()}) does not allow sending push notifications. Please upgrade your plan.`
+      });
+    }
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const sentThisMonth = await Notification.countDocuments({
+      restaurantId,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    if (sentThisMonth >= limits.notifications) {
+      return res.status(400).json({
+        message: `Monthly push notification limit reached (${sentThisMonth}/${limits.notifications}) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
+      });
     }
 
     const userQuery = {
@@ -101,6 +155,9 @@ exports.createNotification = async (req, res) => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       $push: { notifications: notification._id },
     });
+
+    // Synchronize pushStats on Restaurant
+    await updateRestaurantPushStats(restaurantId);
     // ── Dispatch FCM ──────────────────────────────────────────────────────
     let fcmResult = { successCount: 0, failureCount: 0, total: tokens.length };
 
@@ -166,12 +223,31 @@ exports.createStampNotification = async (req, res) => {
       return res.status(400).json({ message: 'minStamps must be a number' });
     }
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found' });
-    }
+    // ── Validate restaurant, billing limits & ownership ──────────────────
+    const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
     if (restaurant.owner.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (limits.notifications === 0) {
+      return res.status(400).json({
+        message: `Your subscription tier (${tier.toUpperCase()}) does not allow sending targeted campaigns. Please upgrade your plan.`
+      });
+    }
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const sentThisMonth = await Notification.countDocuments({
+      restaurantId,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    if (sentThisMonth >= limits.notifications) {
+      return res.status(400).json({
+        message: `Monthly targeted campaign limit reached (${sentThisMonth}/${limits.notifications}) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
+      });
     }
 
     const customers = await User.find({
@@ -201,6 +277,9 @@ exports.createStampNotification = async (req, res) => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       $push: { notifications: notification._id },
     });
+
+    // Synchronize pushStats on Restaurant
+    await updateRestaurantPushStats(restaurantId);
 
     if (stampAction?.type && customerIds.length > 0) {
       const numeric = Number(stampAction.value) || 0;

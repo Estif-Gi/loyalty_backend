@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Restaurant = require('../model/restaurant');
 const { getIo } = require('../sockets/ioInstance');
+const { getLimitsForTier } = require('../utils/billingLimits');
 
 exports.register = async (req, res) => {
     try {
@@ -116,6 +117,18 @@ exports.addStamps = async (req, res) => {
             if (!loyaltyProgram) {
                 return res.status(400).json({ message: 'Loyalty program ID is required for new loyalty records' });
             }
+
+            // Enforce customer profiles limit
+            const tier = restaurant.billingStatus || 'free';
+            const limits = getLimitsForTier(tier);
+            const currentCustomers = await User.countDocuments({ 'loyalTo.resID': restaurantId });
+
+            if (currentCustomers >= limits.customers) {
+                return res.status(400).json({
+                    message: `Customer profile limit reached (${currentCustomers}/${limits.customers} customers) for this restaurant's ${tier.toUpperCase()} tier. Please upgrade your plan.`
+                });
+            }
+
             customer.loyalTo.push({
                 resID: restaurant._id,
                 resName: restaurant.name,
@@ -125,6 +138,13 @@ exports.addStamps = async (req, res) => {
         }
 
         await customer.save();
+
+        // If we added a new customer, synchronize the customerCount on the Restaurant
+        if (loyaltyIndex === -1) {
+            const freshCustomerCount = await User.countDocuments({ 'loyalTo.resID': restaurantId });
+            restaurant.customerCount = freshCustomerCount;
+            await restaurant.save();
+        }
 
         // ── Socket push ──────────────────────────────────────────
         const io = getIo();
@@ -143,8 +163,8 @@ exports.addStamps = async (req, res) => {
 
         res.json({ message: 'Stamps added successfully', loyalTo: customer.loyalTo });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error("🔥 Error in addStamps:", error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 

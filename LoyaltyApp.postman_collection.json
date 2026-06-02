@@ -288,6 +288,38 @@
 					"response": []
 				},
 				{
+					"name": "Update Restaurant Billing Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"billingStatus\": \"loyal\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"<RESTAURANT_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Upload Logo",
 					"request": {
 						"method": "PATCH",
@@ -412,7 +444,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Employee Name\",\n    \"phone\": \"+1234567890\",\n    \"role\": \"employee\"\n}"
+							"raw": "{\n    \"name\": \"Employee Name\",\n    \"password\": \"password123\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>/employees",

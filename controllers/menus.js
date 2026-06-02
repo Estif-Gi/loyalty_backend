@@ -1,18 +1,23 @@
 const Menu = require('../model/menu');
 const Restaurant = require('../model/restaurant');
+const { getRestaurantAndLimits, getLimitsForTier } = require('../utils/billingLimits');
 
 exports.createMenu = async (req, res) => {
     try {
         const { restaurantId, items } = req.body;
 
-        const restaurant = await Restaurant.findById(restaurantId);
-        if (!restaurant) {
-            return res.status(404).json({ message: 'Restaurant not found' });
-        }
+        const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
 
         // Authorization check
         if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const initialCount = items ? items.length : 0;
+        if (initialCount > limits.menuItems) {
+            return res.status(400).json({
+                message: `Menu item limit reached (${initialCount}/${limits.menuItems} items) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
+            });
         }
 
         const menu = new Menu({
@@ -22,8 +27,9 @@ exports.createMenu = async (req, res) => {
 
         await menu.save();
 
-        // Add menu to restaurant
+        // Add menu to restaurant & sync count
         restaurant.menu.push(menu._id);
+        restaurant.menuItemCount = menu.items.length;
         await restaurant.save();
 
         res.status(201).json(menu);
@@ -58,8 +64,20 @@ exports.addMenuItems = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        const limits = getLimitsForTier(restaurant.billingStatus || 'free');
+        const totalItemsCount = menu.items.length + (items ? items.length : 0);
+        if (totalItemsCount > limits.menuItems) {
+            return res.status(400).json({
+                message: `Adding these items would exceed the menu item limit of ${limits.menuItems} items for the ${(restaurant.billingStatus || 'free').toUpperCase()} tier. Current: ${menu.items.length}, Requested: ${items ? items.length : 0}. Please upgrade your plan.`
+            });
+        }
+
         menu.items.push(...items);
         await menu.save();
+
+        // Sync count
+        restaurant.menuItemCount = menu.items.length;
+        await restaurant.save();
 
         res.json(menu);
     } catch (error) {
@@ -107,9 +125,22 @@ exports.updateMenu = async (req, res) => {
         }
 
         const { items } = req.body;
-        if (items) menu.items = items;
+        if (items) {
+            const limits = getLimitsForTier(restaurant.billingStatus || 'free');
+            if (items.length > limits.menuItems) {
+                return res.status(400).json({
+                    message: `Updating the menu would exceed the menu item limit of ${limits.menuItems} items for the ${(restaurant.billingStatus || 'free').toUpperCase()} tier. Please upgrade your plan.`
+                });
+            }
+            menu.items = items;
+        }
 
         await menu.save();
+
+        // Sync count
+        restaurant.menuItemCount = menu.items.length;
+        await restaurant.save();
+
         res.json(menu);
     } catch (error) {
         console.error(error);
@@ -139,6 +170,10 @@ exports.removeMenuItems = async (req, res) => {
             { new: true }
         );
 
+        // Sync count
+        restaurant.menuItemCount = updatedMenu.items.length;
+        await restaurant.save();
+
         res.json(updatedMenu);
     } catch (error) {
         console.error(error);
@@ -163,9 +198,12 @@ exports.deleteMenu = async (req, res) => {
             const idx = restaurant.menu.findIndex(m => m.toString() === req.params.id);
             if (idx > -1) {
                 restaurant.menu.splice(idx, 1);
-                await restaurant.save();
             }
         }
+
+        // Reset menuItemCount to 0 and save
+        restaurant.menuItemCount = 0;
+        await restaurant.save();
 
         res.json({ message: 'Menu deleted' });
     } catch (error) {

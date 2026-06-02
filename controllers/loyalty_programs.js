@@ -1,18 +1,23 @@
 const LoyaltyProgram = require('../model/loyalty_program');
 const Restaurant = require('../model/restaurant');
+const { getRestaurantAndLimits } = require('../utils/billingLimits');
 
 exports.setupProgram = async (req, res) => {
     try {
         const { restaurantId, rewards } = req.body;
 
-        const restaurant = await Restaurant.findById(restaurantId);
-        if (!restaurant) {
-            return res.status(404).json({ message: 'Restaurant not found' });
-        }
+        const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
 
         // Authorization check
         if (restaurant.owner.toString() !== req.user.id && !['manager'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const programCount = await LoyaltyProgram.countDocuments({ restaurant: restaurantId });
+        if (programCount >= limits.stampDesigns) {
+            return res.status(400).json({
+                message: `Stamp card design limit reached (${programCount}/${limits.stampDesigns} designs) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
+            });
         }
 
         const program = new LoyaltyProgram({
