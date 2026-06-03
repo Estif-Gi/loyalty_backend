@@ -2,42 +2,42 @@ const Menu = require('../model/menu');
 const Restaurant = require('../model/restaurant');
 const { getRestaurantAndLimits, getLimitsForTier } = require('../utils/billingLimits');
 
-// exports.createMenu = async (req, res) => {
-//     try {
-//         const { restaurantId, items } = req.body;
+exports.createMenu = async (req, res) => {
+    try {
+        const { restaurantId, items } = req.body;
 
-//         const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
+        const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
 
-//         // Authorization check
-//         if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-//             return res.status(403).json({ message: 'Not authorized' });
-//         }
+        // Authorization check
+        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
 
-//         const initialCount = items ? items.length : 0;
-//         if (initialCount > limits.menuItems) {
-//             return res.status(400).json({
-//                 message: `Menu item limit reached (${initialCount}/${limits.menuItems} items) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
-//             });
-//         }
+        const initialCount = items ? items.length : 0;
+        if (initialCount > limits.menuItems) {
+            return res.status(400).json({
+                message: `Menu item limit reached (${initialCount}/${limits.menuItems} items) for the ${tier.toUpperCase()} tier. Please upgrade your plan.`
+            });
+        }
 
-//         const menu = new Menu({
-//             restaurant: restaurantId,
-//             items: items || []
-//         });
+        const menu = new Menu({
+            restaurant: restaurantId,
+            items: items || []
+        });
 
-//         await menu.save();
+        await menu.save();
 
-//         // Add menu to restaurant & sync count
-//         restaurant.menu.push(menu._id);
-//         restaurant.menuItemCount = menu.items.length;
-//         await restaurant.save();
+        // Add menu to restaurant & sync count
+        restaurant.menu.push(menu._id);
+        restaurant.menuItemCount = menu.items.length;
+        await restaurant.save();
 
-//         res.status(201).json(menu);
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
+        res.status(201).json(menu);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
 exports.getMenuByRestaurant = async (req, res) => {
     try {
