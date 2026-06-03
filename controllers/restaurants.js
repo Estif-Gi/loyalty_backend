@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Restaurant = require('../model/restaurant');
 const Employee = require('../model/employee');
+const LoyaltyProgram = require('../model/loyalty_program');
+
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getRestaurantAndLimits } = require('../utils/billingLimits');
@@ -188,14 +190,16 @@ exports.getRestaurantByEmployeeId = async (req, res) => {
             return res.status(404).json({ message: 'Employee not found' });
         }
 
-        const restaurant = await Restaurant.findById(employee.restaurant)
-            .select('-notifications -menu');
+        const [restaurant, loyaltyProgram] = await Promise.all([
+            Restaurant.findById(employee.restaurant).select('-notifications'),
+            LoyaltyProgram.findOne({ restaurant: employee.restaurant })
+        ]);
         
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        res.json(restaurant);
+        res.json({ ...restaurant.toObject(), loyaltyProgram: loyaltyProgram._id || null });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

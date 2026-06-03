@@ -43,7 +43,7 @@ const restaurantSchema = new Schema({
         default: 0 
     },
     // menu: [{ type: Schema.Types.ObjectId, ref: 'Menu', default: [], select: false }],
-
+   
     // Push Notification Stats
     pushNotificationsStats: {
         thisMonth: { type: Number, default: 0 },
