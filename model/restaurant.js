@@ -42,7 +42,7 @@ const restaurantSchema = new Schema({
         type: Number, 
         default: 0 
     },
-    menu: [{ type: Schema.Types.ObjectId, ref: 'Menu', default: [], select: false }],
+    // menu: [{ type: Schema.Types.ObjectId, ref: 'Menu', default: [], select: false }],
 
     // Push Notification Stats
     pushNotificationsStats: {

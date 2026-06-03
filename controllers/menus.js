@@ -28,9 +28,9 @@ exports.createMenu = async (req, res) => {
         await menu.save();
 
         // Add menu to restaurant & sync count
-        restaurant.menu.push(menu._id);
-        restaurant.menuItemCount = menu.items.length;
-        await restaurant.save();
+        // restaurant.menu.push(menu._id);
+        // restaurant.menuItemCount = menu.items.length;
+        // await restaurant.save();
 
         res.status(201).json(menu);
     } catch (error) {
