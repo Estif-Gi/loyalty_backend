@@ -4,7 +4,7 @@ const menusController = require('../controllers/menus');
 const { verifyToken, checkRole } = require('../middleware/auth');
 
 // Create menu
-router.post('/', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.createMenu);
+// router.post('/', verifyToken, checkRole('owner', 'manager', 'employee'), menusController.createMenu);
 
 // Get menu by restaurant
 router.get('/restaurant/:restaurantId', menusController.getMenuByRestaurant);

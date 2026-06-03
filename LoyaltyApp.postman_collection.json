@@ -482,7 +482,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"items\": [\n        {\n            \"name\": \"Cheese Pizza\",\n            \"description\": \"Classic cheese pizza\",\n            \"price\": 12.99\n        }\n    ]\n}"
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"items\": [\n        {\n            \"name\": \"Cheese Pizza\",\n            \"description\": \"Classic cheese pizza\",\n            \"price\": 12.99,\n            \"category\": \"Mains\"\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/menus",
@@ -533,7 +533,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"items\": [\n        {\n            \"name\": \"Pepperoni Pizza\",\n            \"description\": \"Pizza with pepperoni\",\n            \"price\": 14.99\n        }\n    ]\n}"
+							"raw": "{\n    \"items\": [\n        {\n            \"name\": \"Pepperoni Pizza\",\n            \"description\": \"Pizza with pepperoni\",\n            \"price\": 14.99,\n            \"category\": \"Mains\"\n        },\n        {\n            \"name\": \"Garlic Bread\",\n            \"description\": \"Toasted garlic bread\",\n            \"price\": 4.99,\n            \"category\": \"Starters\"\n        },\n        {\n            \"name\": \"Coca Cola\",\n            \"description\": \"330ml can\",\n            \"price\": 2.49,\n            \"category\": \"Drinks\"\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/menus/<MENU_ID>/items",
@@ -549,43 +549,43 @@
 						}
 					},
 					"response": []
-				},	
-                {
-                    "name": "Update Menu Item",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"name\": \"Spicy Pepperoni Pizza\",\n    \"description\": \"Pepperoni with extra chili\",\n    \"price\": 15.99\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/menus/<MENU_ID>/items/<ITEM_ID>",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "menus",
-                                "<MENU_ID>",
-                                "items",
-                                "<ITEM_ID>"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
+				},
 				{
-                "name": "Remove Menu Items",
+					"name": "Update Menu Item",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Spicy Pepperoni Pizza\",\n    \"description\": \"Pepperoni with extra chili\",\n    \"price\": 15.99,\n    \"category\": \"Mains\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/menus/<MENU_ID>/items/<ITEM_ID>",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"menus",
+								"<MENU_ID>",
+								"items",
+								"<ITEM_ID>"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Menu Items",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -634,7 +634,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"items\": [\n        {\n            \"name\": \"Veggie Pizza\",\n            \"description\": \"Fresh veggies\",\n            \"price\": 13.99\n        }\n    ]\n}"
+							"raw": "{\n    \"items\": [\n        {\n            \"name\": \"Veggie Pizza\",\n            \"description\": \"Fresh veggies\",\n            \"price\": 13.99,\n            \"category\": \"Mains\"\n        },\n        {\n            \"name\": \"Caesar Salad\",\n            \"description\": \"Romaine with caesar dressing\",\n            \"price\": 8.99,\n            \"category\": \"Starters\"\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/menus/<MENU_ID>",
@@ -918,7 +918,7 @@
 	],
 	"variable": [
 		{
-			"key": "baseUrl",
+			"key": "5001",
 			"value": "http://localhost:5001"
 		},
 		{
