@@ -894,7 +894,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1\n}"
+							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/coffee-badge.svg\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1\n}"
 						}
 					]
 				},
@@ -968,7 +968,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"targetMinStamps\": 5,\n    \"stampAction\": {\n      \"type\": \"inc\",\n      \"value\": 1\n    },\n    \"createdAt\": \"2026-06-15T10:05:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:05:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1,\n  \"filteredByMinStamps\": 5\n}"
+							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/coffee-badge.svg\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"targetMinStamps\": 5,\n    \"stampAction\": {\n      \"type\": \"inc\",\n      \"value\": 1\n    },\n    \"createdAt\": \"2026-06-15T10:05:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:05:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1,\n  \"filteredByMinStamps\": 5\n}"
 						}
 					]
 				},
@@ -1036,7 +1036,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "[\n  {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"sentCount\": 1,\n    \"failedCount\": 0,\n    \"status\": \"sent\",\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:02.000Z\"\n  }\n]"
+							"body": "[\n  {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/coffee-badge.svg\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"sentCount\": 1,\n    \"failedCount\": 0,\n    \"status\": \"sent\",\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:02.000Z\"\n  }\n]"
 						}
 					]
 				}

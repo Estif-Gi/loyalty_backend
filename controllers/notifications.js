@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const { getRestaurantAndLimits } = require('../utils/billingLimits');
 
 const DEFAULT_NOTIFICATION_ICON = 'android-chrome-512x512.png';
-const DEFAULT_NOTIFICATION_BADGE = 'favicon-32x32.png';
+const DEFAULT_NOTIFICATION_BADGE = 'cup.png';
 
 function buildPublicBaseUrl(req) {
   return (
