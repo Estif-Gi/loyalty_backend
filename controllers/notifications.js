@@ -6,7 +6,26 @@ const admin = require('../config/firebase-admin');
 const mongoose = require('mongoose');
 const { getRestaurantAndLimits } = require('../utils/billingLimits');
 
-async function dispatchNotification({ notificationId, tokens, title, description, url }) {
+const DEFAULT_NOTIFICATION_ICON = 'android-chrome-512x512.png';
+const DEFAULT_NOTIFICATION_BADGE = 'favicon-32x32.png';
+
+function buildPublicBaseUrl(req) {
+  return (
+    process.env.PUBLIC_BASE_URL ||
+    `${req.protocol}://${req.get('host')}`
+  ).replace(/\/$/, '');
+}
+
+function buildNotificationAssets(req) {
+  const baseUrl = buildPublicBaseUrl(req);
+
+  return {
+    icon: `${baseUrl}/icons/${DEFAULT_NOTIFICATION_ICON}`,
+    badge: `${baseUrl}/icons/${DEFAULT_NOTIFICATION_BADGE}`,
+  };
+}
+
+async function dispatchNotification({ notificationId, tokens, title, description, url, icon, badge }) {
   let fcmResult = { successCount: 0, failureCount: 0, total: tokens.length };
 
   if (!admin.apps.length) {
@@ -23,7 +42,13 @@ async function dispatchNotification({ notificationId, tokens, title, description
 
   const response = await admin.messaging().sendEachForMulticast({
     tokens,
-    data: { title, body: description, url: url || '/rewards' },
+    data: {
+      title,
+      body: description,
+      url: url || '/rewards',
+      icon,
+      badge,
+    },
   });
 
   console.log(`[FCM] ${response.successCount}/${tokens.length} delivered`);
@@ -98,6 +123,7 @@ async function updateRestaurantPushStats(restaurantId) {
 exports.createNotification = async (req, res) => {
   try {
     const { restaurantId, title, description, url } = req.body;
+    const { icon, badge } = buildNotificationAssets(req);
 
     // ── Validate restaurant, billing limits & ownership ──────────────────
     const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
@@ -133,14 +159,14 @@ exports.createNotification = async (req, res) => {
 
     // ── Debug log to verify who's being targeted ──────────────────────────
     const matchedCount = await User.countDocuments(userQuery);
-    console.log(`[Notification] Query:`, JSON.stringify(userQuery, null, 2));
-    console.log(`[Notification] Matched ${matchedCount} users`);
+    // console.log(`[Notification] Query:`, JSON.stringify(userQuery, null, 2));
+    // console.log(`[Notification] Matched ${matchedCount} users`);
 
     const customers = await User.find(userQuery).select('_id fcmToken').lean();
     const customerIds = customers.map((c) => c._id);
     const tokens = customers.map((c) => c.fcmToken).filter(Boolean);
 
-    console.log(`[Notification] Tokens collected: ${tokens.length}`);
+    // console.log(`[Notification] Tokens collected: ${tokens.length}`);
 
     // ── Save notification record ──────────────────────────────────────────
     const notification = await Notification.create({
@@ -148,6 +174,8 @@ exports.createNotification = async (req, res) => {
       title,
       description,
       url: url || '/rewards',
+      icon,
+      badge,
       tokens,
       status: 'pending',
     });
@@ -158,54 +186,15 @@ exports.createNotification = async (req, res) => {
 
     // Synchronize pushStats on Restaurant
     await updateRestaurantPushStats(restaurantId);
-    // ── Dispatch FCM ──────────────────────────────────────────────────────
-    let fcmResult = { successCount: 0, failureCount: 0, total: tokens.length };
-
-    if (!admin.apps.length) {
-      console.warn('[FCM] Admin SDK not initialised – skipping push dispatch.');
-      await Notification.findByIdAndUpdate(notification._id, { status: 'sent' });
-    } else if (tokens.length === 0) {
-      console.log('[FCM] No opted-in customers matched the criteria.');
-      await Notification.findByIdAndUpdate(notification._id, { status: 'sent' });
-    } else {
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens,
-        data: { title, body: description, url: url || '/rewards' },
-      });
-
-      console.log(`[FCM] ${response.successCount}/${tokens.length} delivered`);
-
-      // Clean up stale/invalid tokens
-      const staleTokens = response.responses
-        .map((r, i) =>
-          !r.success &&
-          ['messaging/invalid-registration-token',
-           'messaging/registration-token-not-registered'].includes(r.error?.code)
-            ? tokens[i]
-            : null
-        )
-        .filter(Boolean);
-
-      if (staleTokens.length > 0) {
-        await User.updateMany(
-          { fcmToken: { $in: staleTokens } },
-          { $set: { fcmToken: null } }
-        );
-        console.log(`[FCM] Cleared ${staleTokens.length} stale token(s)`);
-      }
-
-      fcmResult = {
-        successCount: response.successCount,
-        failureCount: response.failureCount,
-        total: tokens.length,
-      };
-
-      await Notification.findByIdAndUpdate(notification._id, {
-        sentCount:   response.successCount,
-        failedCount: response.failureCount,
-        status: response.failureCount === tokens.length ? 'failed' : 'sent',
-      });
-    }
+    const fcmResult = await dispatchNotification({
+      notificationId: notification._id,
+      tokens,
+      title,
+      description,
+      url,
+      icon,
+      badge,
+    });
 
     res.status(201).json({ notification, fcm: fcmResult, audienceSize: tokens.length });
   } catch (error) {
@@ -218,6 +207,7 @@ exports.createStampNotification = async (req, res) => {
   try {
     const { restaurantId, title, description, url, minStamps, stampAction } = req.body;
     const minStampsNumber = Number(minStamps);
+    const { icon, badge } = buildNotificationAssets(req);
 
     if (Number.isNaN(minStampsNumber)) {
       return res.status(400).json({ message: 'minStamps must be a number' });
@@ -263,6 +253,8 @@ exports.createStampNotification = async (req, res) => {
       title,
       description,
       url: url || '/rewards',
+      icon,
+      badge,
       tokens,
       status: 'pending',
       targetMinStamps: minStampsNumber,
@@ -304,6 +296,8 @@ exports.createStampNotification = async (req, res) => {
       title,
       description,
       url,
+      icon,
+      badge,
     });
 
     res.status(201).json({

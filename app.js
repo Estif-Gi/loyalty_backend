@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 require("dotenv").config();
 const { setIo } = require('./sockets/ioInstance');
@@ -39,6 +40,7 @@ app.use(cors({
 
 // 2. Body parser
 app.use(express.json());
+app.use('/icons', express.static(path.join(__dirname, 'icons')));
 
 // 3. Logger
 app.use((req, res, next) => {

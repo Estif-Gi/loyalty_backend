@@ -855,7 +855,48 @@
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "201 Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/notifications",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"notifications"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1\n}"
+						}
+					]
 				},
 				{
 					"name": "Create Notification (with stamp targeting)",
@@ -873,7 +914,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"minStamps\": 5,\n    \"stampAction\": { \"type\": \"inc\", \"value\": 1 }\n}"
+							"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"url\": \"/rewards\",\n    \"minStamps\": 5,\n    \"stampAction\": {\n        \"type\": \"inc\",\n        \"value\": 1\n    }\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/notifications/targeted",
@@ -887,13 +928,60 @@
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "201 Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"url\": \"/rewards\",\n    \"minStamps\": 5,\n    \"stampAction\": {\n        \"type\": \"inc\",\n        \"value\": 1\n    }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/notifications/targeted",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"notifications",
+										"targeted"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"notification\": {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Targeted Reward\",\n    \"description\": \"Sent to customers with 5+ stamps.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"status\": \"pending\",\n    \"sentCount\": 0,\n    \"failedCount\": 0,\n    \"targetMinStamps\": 5,\n    \"stampAction\": {\n      \"type\": \"inc\",\n      \"value\": 1\n    },\n    \"createdAt\": \"2026-06-15T10:05:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:05:00.000Z\"\n  },\n  \"fcm\": {\n    \"successCount\": 1,\n    \"failureCount\": 0,\n    \"total\": 1\n  },\n  \"audienceSize\": 1,\n  \"filteredByMinStamps\": 5\n}"
+						}
+					]
 				},
 				{
 					"name": "Get Notifications",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
 						"url": {
 							"raw": "{{baseUrl}}/api/notifications?restaurantId=<RESTAURANT_ID>",
 							"host": [
@@ -911,7 +999,46 @@
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "200 OK",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/notifications?restaurantId=<RESTAURANT_ID>",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"notifications"
+									],
+									"query": [
+										{
+											"key": "restaurantId",
+											"value": "<RESTAURANT_ID>"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "[\n  {\n    \"_id\": \"<NOTIFICATION_ID>\",\n    \"restaurantId\": \"<RESTAURANT_ID>\",\n    \"title\": \"Weekend Promo!\",\n    \"description\": \"Get double stamps this weekend.\",\n    \"url\": \"/rewards\",\n    \"icon\": \"{{baseUrl}}/icons/android-chrome-512x512.png\",\n    \"badge\": \"{{baseUrl}}/icons/favicon-32x32.png\",\n    \"tokens\": [\"<FCM_TOKEN>\"],\n    \"sentCount\": 1,\n    \"failedCount\": 0,\n    \"status\": \"sent\",\n    \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:02.000Z\"\n  }\n]"
+						}
+					]
 				}
 			]
 		}

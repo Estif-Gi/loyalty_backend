@@ -6,6 +6,8 @@ const notificationSchema = new Schema({
   title:        { type: String, required: true, trim: true },
   description:  { type: String, trim: true },
   url:          { type: String, trim: true, default: "/rewards" },
+  icon:         { type: String, trim: true },
+  badge:        { type: String, trim: true },
 
   // FCM delivery tracking
   tokens:       { type: [String], default: [] },   // tokens snapshot at send time
