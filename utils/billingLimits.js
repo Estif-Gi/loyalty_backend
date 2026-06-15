@@ -3,21 +3,21 @@ const Restaurant = require('../model/restaurant');
 const TIER_LIMITS = {
     free: {
         staff: 2,
-        customers: 200,
+        customers: 50,
         menuItems: 30,
         stampDesigns: 1,
         notifications: 0
     },
     loyal: {
         staff: 4,
-        customers: 1000,
+        customers: 100,
         menuItems: 100,
         stampDesigns: 2,
         notifications: 4
     },
     trustworthy: {
         staff: 6,
-        customers: 5000,
+        customers: 200,
         menuItems: 300,
         stampDesigns: 5,
         notifications: 8
