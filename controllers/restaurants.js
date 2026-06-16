@@ -177,6 +177,8 @@ exports.createEmployee = async (req, res) => {
     }
 };
 
+// controllers/restaurants.js
+
 exports.getRestaurantByEmployeeId = async (req, res) => {
     const { employeeId } = req.params;
     
@@ -194,12 +196,18 @@ exports.getRestaurantByEmployeeId = async (req, res) => {
             Restaurant.findById(employee.restaurant).select('-notifications'),
             LoyaltyProgram.findOne({ restaurant: employee.restaurant })
         ]);
-        
+
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        res.json({ ...restaurant.toObject(), loyaltyProgram: loyaltyProgram._id || null });
+        // Safe access — loyaltyProgram may be null if none exists yet
+        const loyaltyProgramId = loyaltyProgram?._id ?? null;
+
+        res.json({ 
+            ...restaurant.toObject(), 
+            loyaltyProgram: loyaltyProgramId 
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
