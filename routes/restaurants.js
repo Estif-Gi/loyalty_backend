@@ -7,28 +7,46 @@ const upload = require('../middleware/upload');
 // Create restaurant (only owner)
 router.post('/', verifyToken, checkRole('owner'), restaurantsController.createRestaurant);
 
-// Get restaurant details (public)
+// Get restaurant details (public - protected customer projected fields)
 router.get('/:id', restaurantsController.getRestaurant);
 
-
-// GET all restaurants (public)
+// GET all restaurants (public - protected customer projected fields)
 router.get('/', restaurantsController.getAllRestaurants);
 
-// Upload logo (owner, manager, employee)
-router.patch('/:id/logo', verifyToken, checkRole('owner', 'manager', 'employee'), upload.single('logo'), restaurantsController.updateLogo);
+// Upload logo (owner, employee of this restaurant)
+router.patch('/:id/logo', verifyToken, checkRole('owner', 'employee'), upload.single('logo'), restaurantsController.updateLogo);
 
-// Update other details (owner, manager)
-router.patch('/:id', verifyToken, checkRole('owner', 'manager'), restaurantsController.updateRestaurant);
+// Update other details (owner only)
+router.patch('/:id', verifyToken, checkRole('owner'), restaurantsController.updateRestaurant);
 
-// List restaurant employees (owner, manager)
-router.get('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaurantsController.getEmployees);
+// List restaurant employees (owner only)
+router.get('/:id/employees', verifyToken, checkRole('owner'), restaurantsController.getEmployees);
 
-// Get restaurant by employee ID
-router.get('/employee/:employeeId', restaurantsController.getRestaurantByEmployeeId);
+// Get specific restaurant employee details (owner only)
+router.get('/:id/employees/:employeeId', verifyToken, checkRole('owner'), restaurantsController.getEmployeeDetails);
 
-// Employee login
+// Update restaurant employee role/status (owner only)
+router.patch('/:id/employees/:employeeId', verifyToken, checkRole('owner'), restaurantsController.updateEmployee);
+
+// Get restaurant by logged-in employee (authenticated employee only)
+router.get('/employee/me', verifyToken, restaurantsController.getRestaurantByEmployeeId);
+
+// Employee login (public login endpoint)
 router.post('/employee/login', restaurantsController.employeeLogin);
 
-// Create restaurant employee (owner)
-router.post('/:id/employees', verifyToken, checkRole('owner', 'manager'), restaurantsController.createEmployee);
+// Create restaurant employee (owner only)
+router.post('/:id/employees', verifyToken, checkRole('owner'), restaurantsController.createEmployee);
+
+// Get physical ordering configuration (owner, employee)
+router.get('/:id/ordering-config', verifyToken, checkRole('owner', 'employee'), restaurantsController.getOrderingConfig);
+
+// Update physical ordering configuration (owner only)
+router.patch('/:id/ordering-config', verifyToken, checkRole('owner'), restaurantsController.updateOrderingConfig);
+
+// Get custom order workflow steps (owner, employee)
+router.get('/:id/workflow', verifyToken, checkRole('owner', 'employee'), restaurantsController.getWorkflow);
+
+// Update custom order workflow steps (owner only)
+router.patch('/:id/workflow', verifyToken, checkRole('owner'), restaurantsController.updateWorkflow);
+
 module.exports = router;

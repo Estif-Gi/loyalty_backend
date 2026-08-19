@@ -9,8 +9,12 @@ exports.createMenu = async (req, res) => {
         const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
 
         // Authorization check
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         const initialCount = items ? items.length : 0;
@@ -70,8 +74,12 @@ exports.addMenuItems = async (req, res) => {
 
         // Authorization check
         const restaurant = menu.restaurant;
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         // Duplicate check — block items with the same name already in the menu
@@ -112,8 +120,12 @@ exports.updateMenuItem = async (req, res) => {
         if (!menu) return res.status(404).json({ message: 'Menu not found' });
 
         const restaurant = menu.restaurant;
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         const item = menu.items.id(req.params.itemId);
@@ -139,8 +151,12 @@ exports.updateMenu = async (req, res) => {
         if (!menu) return res.status(404).json({ message: 'Menu not found' });
 
         const restaurant = menu.restaurant;
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         const { items } = req.body;
@@ -179,8 +195,12 @@ exports.removeMenuItems = async (req, res) => {
         if (!menu) return res.status(404).json({ message: 'Menu not found' });
 
         const restaurant = menu.restaurant;
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         const updatedMenu = await Menu.findByIdAndUpdate(
@@ -206,8 +226,12 @@ exports.deleteMenu = async (req, res) => {
         if (!menu) return res.status(404).json({ message: 'Menu not found' });
 
         const restaurant = menu.restaurant;
-        if (restaurant.owner.toString() !== req.user.id && !['manager', 'employee'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Not authorized' });
+        if (restaurant.owner.toString() !== req.user.id) {
+            if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurant._id.toString()) {
+                // Authorized
+            } else {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
         }
 
         await Menu.findByIdAndDelete(req.params.id);

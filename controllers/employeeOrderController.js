@@ -1,0 +1,282 @@
+const mongoose = require('mongoose');
+const Order = require('../model/order');
+const { resolveNextTransition } = require('../services/orderWorkflowService');
+const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
+
+/**
+ * Serializes order document for staff queue (including full operational metadata).
+ */
+function serializeOrderForEmployee(order) {
+  return {
+    id: order._id,
+    orderNumber: order.orderNumber,
+    customer: order.customer,
+    table: order.table,
+    items: order.items,
+    pricing: order.pricing,
+    currentStepKey: order.currentStepKey,
+    systemState: order.systemState,
+    kitchen: order.kitchen,
+    service: order.service,
+    payment: order.payment,
+    timeline: order.timeline,
+    customerNotes: order.customerNotes,
+    cancellation: order.cancellation.cancelledAt ? order.cancellation : null,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt
+  };
+}
+
+exports.getEmployeeOrders = async (req, res) => {
+  try {
+    const restaurantId = req.employee.restaurantId;
+    const { status } = req.query; // 'active' or 'history'
+
+    const query = { restaurant: restaurantId };
+
+    if (status === 'active') {
+      query.systemState = { $in: [SYSTEM_STATES.OPEN, SYSTEM_STATES.IN_PROGRESS] };
+    } else if (status === 'history') {
+      query.systemState = { $in: [SYSTEM_STATES.COMPLETED, SYSTEM_STATES.CANCELLED] };
+    }
+
+    // Sort queue oldest-first for operational efficiency (kitchen/waiters prep queue)
+    const orders = await Order.find(query)
+      .populate('table', 'name code')
+      .sort({ createdAt: 1 });
+
+    // Filter queue based on step role visibility and waiter table assignment
+    const visibleOrders = orders.filter((order) => {
+      const step = order.workflow.steps.find((s) => s.key === order.currentStepKey);
+      if (!step) return false;
+      if (!step.visibleToRoles || step.visibleToRoles.length === 0) return true;
+      if (!step.visibleToRoles.includes(req.employee.role)) return false;
+
+      // Waiters are restricted to their assigned orders (Section 24)
+      if (req.employee.role === 'waiter') {
+        return order.service && order.service.waiter && order.service.waiter.toString() === req.employee.id;
+      }
+
+      return true;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orders: visibleOrders.map((o) => serializeOrderForEmployee(o))
+      }
+    });
+  } catch (error) {
+    console.error('🔥 Error in getEmployeeOrders:', error);
+    res.status(500).json({
+      success: false,
+      error: ORDER_ERROR_CODES.SERVER_ERROR,
+      message: 'Server error fetching queue.'
+    });
+  }
+};
+
+exports.advanceOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { expectedStep } = req.body;
+
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_NOT_FOUND,
+        message: 'Invalid order ID format.'
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_NOT_FOUND,
+        message: 'Order not found.'
+      });
+    }
+
+    // Verify employee restaurant isolation
+    if (order.restaurant.toString() !== req.employee.restaurantId) {
+      return res.status(403).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+        message: 'Not authorized. This order belongs to another restaurant.'
+      });
+    }
+
+    // Verify dynamic workflow transition permission (ROLE_PERMISSIONS + actionRoles)
+    const transition = resolveNextTransition(order, req.employee);
+    if (!transition.canAdvance) {
+      return res.status(403).json({
+        success: false,
+        error: transition.error,
+        message: transition.message
+      });
+    }
+
+    // Verify waiter assignment restriction (Section 28)
+    if (req.employee.role === 'waiter' && order.service && order.service.waiter) {
+      if (order.service.waiter.toString() !== req.employee.id) {
+        return res.status(403).json({
+          success: false,
+          error: 'ORDER_ASSIGNED_TO_ANOTHER_WAITER',
+          message: 'This order is assigned to another waiter.'
+        });
+      }
+    }
+
+    const { nextStep } = transition;
+
+    // Verify concurrency expected step (Section 37)
+    if (order.currentStepKey !== expectedStep) {
+      return res.status(409).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_STATE_CHANGED,
+        message: 'This order was already updated by another employee. Please refresh.'
+      });
+    }
+
+    // Resolve updates & responsibility tracking (Section 38)
+    const updateSet = {
+      currentStepKey: nextStep.key,
+      systemState: nextStep.systemState
+    };
+
+    // Kitchen responsibility updates
+    if (nextStep.key === 'preparing') {
+      updateSet['kitchen.startedBy'] = req.employee.id;
+      updateSet['kitchen.startedAt'] = new Date();
+    }
+    if (nextStep.key === 'ready') {
+      updateSet['kitchen.readyBy'] = req.employee.id;
+      updateSet['kitchen.readyAt'] = new Date();
+    }
+    if (nextStep.key === 'completed') {
+      updateSet['service.servedAt'] = new Date();
+    }
+    updateSet['kitchen.lastHandledBy'] = req.employee.id;
+
+    // Atomically transition status
+    const updatedOrder = await Order.findOneAndUpdate(
+      {
+        _id: orderId,
+        currentStepKey: expectedStep
+      },
+      {
+        $set: updateSet,
+        $push: {
+          timeline: {
+            stepKey: nextStep.key,
+            systemState: nextStep.systemState,
+            actorType: 'employee',
+            actorId: req.employee.id,
+            actorRole: req.employee.role,
+            action: 'workflow_advanced',
+            note: `Step advanced to ${nextStep.key} by ${req.employee.role}`
+          }
+        }
+      },
+      { new: true }
+    ).populate('table', 'name code');
+
+    if (!updatedOrder) {
+      return res.status(409).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_STATE_CHANGED,
+        message: 'This order was already updated by another employee. Please refresh.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        order: serializeOrderForEmployee(updatedOrder)
+      }
+    });
+  } catch (error) {
+    console.error('🔥 Error in advanceOrder:', error);
+    res.status(500).json({
+      success: false,
+      error: ORDER_ERROR_CODES.SERVER_ERROR,
+      message: 'Server error advancing workflow step.'
+    });
+  }
+};
+
+exports.claimOrder = async (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'ORDER_CLAIM_DEPRECATED',
+    message: 'Waiter claiming is deprecated. Orders are automatically assigned based on table configuration.'
+  });
+};
+
+exports.cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_NOT_FOUND,
+        message: 'Order not found.'
+      });
+    }
+
+    // Verify employee restaurant isolation
+    if (order.restaurant.toString() !== req.employee.restaurantId) {
+      return res.status(403).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+        message: 'Not authorized.'
+      });
+    }
+
+    if (order.systemState === SYSTEM_STATES.COMPLETED) {
+      return res.status(400).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_CANCELLATION_NOT_ALLOWED,
+        message: 'Cannot cancel an already completed order.'
+      });
+    }
+
+    order.systemState = SYSTEM_STATES.CANCELLED;
+    order.cancellation = {
+      reason: reason || 'Cancelled by staff override',
+      cancelledBy: req.employee.id,
+      actorType: 'employee',
+      cancelledAt: new Date()
+    };
+    order.timeline.push({
+      stepKey: order.currentStepKey,
+      systemState: SYSTEM_STATES.CANCELLED,
+      actorType: 'employee',
+      actorId: req.employee.id,
+      actorRole: req.employee.role,
+      action: 'order_cancelled',
+      note: reason || 'Cancelled by staff override'
+    });
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order successfully cancelled.',
+      data: {
+        order: serializeOrderForEmployee(order)
+      }
+    });
+  } catch (error) {
+    console.error('🔥 Error in cancelOrder:', error);
+    res.status(500).json({
+      success: false,
+      error: ORDER_ERROR_CODES.SERVER_ERROR,
+      message: 'Server error cancelling order.'
+    });
+  }
+};

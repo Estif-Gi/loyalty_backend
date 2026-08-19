@@ -39,6 +39,26 @@
 				},
 				{
 					"name": "Login User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.token) {",
+									"    if (response.user && response.user.role === 'owner') {",
+									"        pm.collectionVariables.set('ownerToken', response.token);",
+									"        pm.collectionVariables.set('ownerId', response.user.id);",
+									"    } else if (response.user) {",
+									"        pm.collectionVariables.set('customerToken', response.token);",
+									"        pm.collectionVariables.set('customerId', response.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [
@@ -380,12 +400,17 @@
 					"response": []
 				},
 				{
-					"name": "Get Restaurant By Employee ID",
+					"name": "Get Restaurant By Employee ID (me)",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
 						"url": {
-							"raw": "{{baseUrl}}/api/restaurants/employee/<EMPLOYEE_ID>",
+							"raw": "{{baseUrl}}/api/restaurants/employee/me",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -393,7 +418,7 @@
 								"api",
 								"restaurants",
 								"employee",
-								"<EMPLOYEE_ID>"
+								"me"
 							]
 						}
 					},
@@ -401,6 +426,23 @@
 				},
 				{
 					"name": "Employee Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.token) {",
+									"    pm.collectionVariables.set('employeeToken', response.token);",
+									"    if (response.employee) {",
+									"        pm.collectionVariables.set('employeeId', response.employee.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [
@@ -439,23 +481,199 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{token}}"
+								"value": "Bearer {{ownerToken}}"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Employee Name\",\n    \"password\": \"password123\"\n}"
+							"raw": "{\n    \"name\": \"Jane Chef\",\n    \"password\": \"password123\",\n    \"role\": \"chef\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/restaurants/<RESTAURANT_ID>/employees",
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/employees",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"api",
 								"restaurants",
-								"<RESTAURANT_ID>",
+								"{{restaurantId}}",
 								"employees"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Employee Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/employees/{{employeeId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"employees",
+								"{{employeeId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Restaurant Employee Role/Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"role\": \"chef\",\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/employees/{{employeeId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"employees",
+								"{{employeeId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Ordering Configuration",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/ordering-config",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"ordering-config"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Restaurant Ordering Configuration",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"latitude\": 9.012345,\n    \"longitude\": 38.765432,\n    \"orderingRadiusMeters\": 120,\n    \"orderingEnabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/ordering-config",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"ordering-config"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Order Workflow",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Restaurant Order Workflow",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order Received\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Start Preparing\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Mark Ready\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"ready\",\n            \"label\": \"Ready for Pickup\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Mark Served\",\n            \"order\": 3,\n            \"enabled\": false,\n            \"required\": false\n        },\n        {\n            \"key\": \"serving\",\n            \"label\": \"Serving Table\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 4,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Order Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 5,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
 							]
 						}
 					},
@@ -1041,16 +1259,1116 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Security Hardening Tests",
+			"item": [
+				{
+					"name": "Public Registration Privilege Check",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Attacker\",\n    \"phone\": \"+9999999999\",\n    \"password\": \"password123\",\n    \"role\": \"admin\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"register"
+							]
+						},
+						"description": "Attempt to self-register as an admin. Should return 400 Bad Request and error code PUBLIC_ROLE_ASSIGNMENT_NOT_ALLOWED."
+					},
+					"response": []
+				},
+				{
+					"name": "Billing Security Check",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"billingStatus\": \"faithful\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}"
+							]
+						},
+						"description": "Owner attempts to modify restaurant billingStatus to upgrade subscription. Should return 400 Bad Request with error code BILLING_STATUS_NOT_OWNER_EDITABLE."
+					},
+					"response": []
+				},
+				{
+					"name": "Employee Restaurant Isolation Check",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerId\": \"{{customerId}}\",\n    \"restaurantId\": \"some_other_restaurant_id\",\n    \"stampsToAdd\": 1,\n    \"loyaltyProgram\": \"{{loyaltyProgramId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/stamps",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"stamps"
+							]
+						},
+						"description": "Employee of restaurant A attempts to add stamps for restaurant B. Should return 403 Forbidden with error code EMPLOYEE_RESTAURANT_MISMATCH."
+					},
+					"response": []
+				},
+				{
+					"name": "Workflow Protection Check",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"Hacked Placed\",\n            \"systemState\": \"CANCELLED\",\n            \"order\": 1\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
+							]
+						},
+						"description": "Owner attempts to modify workflow system-controlled fields (e.g. systemState of placed). Should return 400 Bad Request with error code WORKFLOW_SYSTEM_FIELD_IMMUTABLE."
+					},
+					"response": []
+				},
+				{
+					"name": "Workflow Customization Check (Disable Ready)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order Received\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Start Preparing\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Serve directly\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"ready\",\n            \"label\": \"Ready for Pickup\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Take Order\",\n            \"order\": 3,\n            \"enabled\": false,\n            \"required\": false\n        },\n        {\n            \"key\": \"serving\",\n            \"label\": \"Serving Table\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 4,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Order Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 5,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
+							]
+						},
+						"description": "Owner disables the ready step. Should succeed with 200 OK and increment orderWorkflowVersion."
+					},
+					"response": []
+				},
+				{
+					"name": "Workflow Boundary Check (Invalid Placed)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"order\": 1,\n            \"enabled\": true\n        },\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order\",\n            \"systemState\": \"OPEN\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"order\": 3,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
+							]
+						},
+						"description": "Owner attempts to save workflow where placed is not the first enabled step. Should return 400 Bad Request with error INVALID_ORDER_WORKFLOW_BOUNDARY."
+					},
+					"response": []
+				},
+				{
+					"name": "Workflow Order Check (Float Value)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order\",\n            \"systemState\": \"OPEN\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"order\": 1.5,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"workflow"
+							]
+						},
+						"description": "Owner attempts to save step.order as float 1.5. Should return 400 Bad Request with error INVALID_ORDER_WORKFLOW_ORDER."
+					},
+					"response": []
+				},
+				{
+					"name": "GPS Accuracy Spoof Check",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"qrToken\": \"{{qrToken}}\",\n    \"location\": {\n        \"latitude\": 9.0201,\n        \"longitude\": 38.7501,\n        \"accuracy\": 200\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/order-sessions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"order-sessions"
+							]
+						},
+						"description": "Customer attempts to check in with poor accuracy (200m). Should fail with LOCATION_ACCURACY_TOO_LOW."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Restaurant Tables",
+			"item": [
+				{
+					"name": "Create Table",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data) {",
+									"    pm.collectionVariables.set('tableId', response.data._id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Table 7\",\n    \"code\": \"T7\",\n    \"description\": \"Main hall table\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Tables",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Table",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Table",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Table 7 Updated\",\n    \"description\": \"Main hall window table\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Table",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/deactivate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"deactivate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Table",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/activate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"activate"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Restaurant QR Codes",
+			"item": [
+				{
+					"name": "Generate QR Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data) {",
+									"    pm.collectionVariables.set('qrToken', response.data.token);",
+									"    pm.collectionVariables.set('qrId', response.data.qrCodeId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/qr",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"qr"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get QR Metadata",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/qr",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"qr"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Rotate QR Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data) {",
+									"    pm.collectionVariables.set('qrToken', response.data.token);",
+									"    pm.collectionVariables.set('qrId', response.data.qrCodeId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/qr/rotate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"qr",
+								"rotate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke QR Code",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/qr/{{qrId}}/revoke",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"qr",
+								"{{qrId}}",
+								"revoke"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Waiter to Table",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"waiterId\": \"{{waiterId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/{{tableId}}/waiter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"{{tableId}}",
+								"waiter"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Assign Tables",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"waiterId\": \"{{waiterId}}\",\n    \"tableIds\": [\"{{tableId}}\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/table-assignments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"table-assignments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Table Assignments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/table-assignments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"table-assignments"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Order Sessions",
+			"item": [
+				{
+					"name": "Create OrderSession",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data) {",
+									"    pm.collectionVariables.set('orderSessionId', response.data.session.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"qrToken\": \"{{qrToken}}\",\n    \"location\": {\n        \"latitude\": 9.0201,\n        \"longitude\": 38.7501,\n        \"accuracy\": 15\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/order-sessions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"order-sessions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current OrderSession",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/order-sessions/current",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"order-sessions",
+								"current"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Session Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"latitude\": 9.0201,\n    \"longitude\": 38.7501,\n    \"accuracy\": 12\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/order-sessions/{{orderSessionId}}/verify-location",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"order-sessions",
+								"{{orderSessionId}}",
+								"verify-location"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/order-sessions/{{orderSessionId}}/cancel",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"order-sessions",
+								"{{orderSessionId}}",
+								"cancel"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Orders — Customer",
+			"item": [
+				{
+					"name": "Create Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.success && response.data) {",
+									"    pm.collectionVariables.set('orderId', response.data.order.id);",
+									"    pm.collectionVariables.set('orderNumber', response.data.order.orderNumber);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "{{idempotencyKey}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderSessionId\": \"{{orderSessionId}}\",\n    \"location\": {\n        \"latitude\": 9.0201,\n        \"longitude\": 38.7501,\n        \"accuracy\": 15\n    },\n    \"items\": [\n        {\n            \"menuItemId\": \"YOUR_MENU_ITEM_ID\",\n            \"quantity\": 2,\n            \"notes\": \"Extra cheese\"\n        }\n    ],\n    \"customerNotes\": \"Deliver hot\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders"
+							]
+						},
+						"description": "Creates an order using verified OrderSession and fresh geofence reading. Returns 201."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Orders",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/my?status=active",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"my"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Customer gets their own active or history orders list."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Order Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"{{orderId}}"
+							]
+						},
+						"description": "Retrieves details of a single order owned by the customer."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Orders — Employee",
+			"item": [
+				{
+					"name": "Get Staff Order Queue",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders?status=active",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Active staff gets restaurant preparation queue. Returns oldest-first."
+					},
+					"response": []
+				},
+				{
+					"name": "Advance Order Step",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"expectedStep\": \"placed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/advance",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"advance"
+							]
+						},
+						"description": "Advance the order to the next enabled step in workflow. Enforces concurrency protection."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Order (Staff Override)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Customer changed mind\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/cancel",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"cancel"
+							]
+						},
+						"description": "Staff overrides and cancels the order ticket."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
 		{
-			"key": "5001",
+			"key": "baseUrl",
 			"value": "http://localhost:5001"
 		},
 		{
-			"key": "token",
-			"value": "YOUR_JWT_TOKEN_HERE"
+			"key": "ownerToken",
+			"value": "YOUR_OWNER_JWT_TOKEN"
+		},
+		{
+			"key": "employeeToken",
+			"value": "YOUR_EMPLOYEE_JWT_TOKEN"
+		},
+		{
+			"key": "customerToken",
+			"value": "YOUR_CUSTOMER_JWT_TOKEN"
+		},
+		{
+			"key": "restaurantId",
+			"value": ""
+		},
+		{
+			"key": "employeeId",
+			"value": ""
+		},
+		{
+			"key": "customerId",
+			"value": ""
+		},
+		{
+			"key": "loyaltyProgramId",
+			"value": ""
+		},
+		{
+			"key": "tableId",
+			"value": ""
+		},
+		{
+			"key": "qrToken",
+			"value": ""
+		},
+		{
+			"key": "qrId",
+			"value": ""
+		},
+		{
+			"key": "orderSessionId",
+			"value": ""
+		},
+		{
+			"key": "orderId",
+			"value": ""
+		},
+		{
+			"key": "orderNumber",
+			"value": ""
+		},
+		{
+			"key": "idempotencyKey",
+			"value": ""
 		}
 	]
 }

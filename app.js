@@ -74,9 +74,14 @@ io.on('connection', (socket) => {
 app.get("/", (req, res) => res.send({ message: "Let's get loyalty started" }));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/restaurants", require("./routes/restaurants"));
+app.use("/api/restaurants", require("./routes/restaurantTables"));
+app.use("/api/restaurants", require("./routes/restaurantQrCodes"));
 app.use("/api/menus", require("./routes/menus"));
 app.use("/api/loyalty", require("./routes/loyalty_programs"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use("/api/order-sessions", require("./routes/orderSessions"));
+app.use("/api/orders", require("./routes/orders"));
+app.use("/api/employee/orders", require("./routes/employeeOrders"));
 
 // 7. Global error handler — must be last
 app.use((err, req, res, next) => {
@@ -86,12 +91,14 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5001;
 
-mongoose
-  .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@loyaltyapp.uno2z8g.mongodb.net/?appName=loyaltyApp`)
-  .then(() => {
-    console.log("**** Connected to MongoDB ****");
-    server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  })
-  .catch((err) => console.log("❌ Failed to connect to MongoDB:", err));
+if (require.main === module) {
+  mongoose
+    .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@loyaltyapp.uno2z8g.mongodb.net/?appName=loyaltyApp`)
+    .then(() => {
+      console.log("**** Connected to MongoDB ****");
+      server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    })
+    .catch((err) => console.log("❌ Failed to connect to MongoDB:", err));
+}
 
 module.exports = app;

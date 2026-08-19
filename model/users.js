@@ -5,7 +5,7 @@ const userSchema = new Schema({
     name: { type: String, required: true, trim: true },
     phone: { type: String,  required: true, unique: true, trim: true },
     password: { type: String,  required: true },
-    role: {  type: String,  enum: ['customer', 'admin', 'owner', 'manager', 'employee'],  default: 'customer' },
+    role: {  type: String,  enum: ['customer', 'admin', 'owner'],  default: 'customer' },
     // Grouping the loyalty data into a single sub-document object
     loyalTo: [{
         resID: {  type: Schema.Types.ObjectId,  ref: 'Restaurant', required: true },

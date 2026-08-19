@@ -1,13 +1,26 @@
 const User = require('../model/users');
+const Employee = require('../model/employee');
+const Restaurant = require('../model/restaurant');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const Restaurant = require('../model/restaurant');
 const { getIo } = require('../sockets/ioInstance');
 const { getLimitsForTier } = require('../utils/billingLimits');
 
 exports.register = async (req, res) => {
     try {
         const { name, phone, password, role } = req.body;
+
+        // P0 Security Check: Prevent public privilege escalation
+        if (role && role !== 'customer') {
+            return res.status(400).json({
+                success: false,
+                error: "PUBLIC_ROLE_ASSIGNMENT_NOT_ALLOWED",
+                message: "Public registration cannot assign privileged account roles.",
+                details: {
+                    allowedRole: "customer"
+                }
+            });
+        }
 
         // Check if user exists
         let user = await User.findOne({ phone });
@@ -22,7 +35,7 @@ exports.register = async (req, res) => {
             name,
             phone,
             password: hashedPassword,
-            role: role || 'customer'
+            role: 'customer' // Force role to customer
         });
 
         await user.save();
@@ -65,14 +78,30 @@ exports.login = async (req, res) => {
     }
 };
 
+// Unified profile retrieval for both Users and Employees (Option B)
 exports.getProfile = async (req, res) => {
     try {
+        // If employee token
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findById(req.user.id).select('-password').lean();
+            if (!employee) {
+                return res.status(404).json({ message: 'Employee not found' });
+            }
+            return res.json({
+                _id: employee._id,
+                name: employee.name,
+                restaurantId: employee.restaurant,
+                role: employee.role,
+                isActive: employee.isActive
+            });
+        }
+
         const user = await User.findById(req.user.id).select('-password').lean();
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        if (['owner', 'manager', 'employee'].includes(user.role)) {
+        if (user.role === 'owner') {
             const restaurant = await Restaurant.findOne({ owner: req.user.id });
             if (restaurant) {
                 user.restaurantId = restaurant._id;
@@ -89,7 +118,6 @@ exports.getProfile = async (req, res) => {
 exports.addStamps = async (req, res) => {
     try {
         const { customerId, restaurantId, stampsToAdd, loyaltyProgram } = req.body;
-        // console.log(`📝 addStamps called: customerId=${customerId}, restaurantId=${restaurantId}, stampsToAdd=${stampsToAdd}`);
 
         if (!stampsToAdd || stampsToAdd <= 0) {
             return res.status(400).json({ message: 'Invalid stamp amount' });
@@ -103,6 +131,47 @@ exports.addStamps = async (req, res) => {
         const restaurant = await Restaurant.findById(restaurantId);
         if (!restaurant) {
             return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        // --- HARDENED STAMP AUTHORIZATION CHECKS ---
+        if (req.user.role === 'employee') {
+            if (!req.employee) {
+                return res.status(401).json({
+                    success: false,
+                    error: "EMPLOYEE_NOT_AUTHENTICATED",
+                    message: "Employee authentication is required."
+                });
+            }
+            // Check restaurant isolation
+            if (req.employee.restaurantId !== restaurantId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    error: "EMPLOYEE_RESTAURANT_MISMATCH",
+                    message: "The authenticated employee does not belong to the requested restaurant.",
+                    details: {
+                        employeeRestaurantId: req.employee.restaurantId,
+                        requestedRestaurantId: restaurantId.toString()
+                    }
+                });
+            }
+            // Check cashier permission
+            if (!req.employee.permissions.includes('loyalty:stamps:add')) {
+                return res.status(403).json({
+                    success: false,
+                    error: "EMPLOYEE_PERMISSION_DENIED",
+                    message: "The authenticated employee does not have permission to perform this action.",
+                    details: {
+                        requiredPermission: "loyalty:stamps:add",
+                        employeeRole: req.employee.role
+                    }
+                });
+            }
+        } else if (req.user.role === 'owner') {
+            if (restaurant.owner.toString() !== req.user.id) {
+                return res.status(403).json({ message: 'Not authorized' });
+            }
+        } else if (req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized' });
         }
 
         const loyaltyIndex = customer.loyalTo.findIndex(l => l.resID.toString() === restaurantId);
@@ -153,13 +222,12 @@ exports.addStamps = async (req, res) => {
         if (io) {
             io.to(userRoom).emit('profileData', {
                 success: true,
-                data: customer.toObject()   // already fresh from save()
+                data: customer.toObject()
             });
             console.log(`📡 Pushed stamp update to user room ${userRoom}`);
         } else {
             console.warn(`⚠️ Socket.IO instance not initialized for user ${customer._id}`);
         }
-        // ────────────────────────────────────────────────────────
 
         res.json({ message: 'Stamps added successfully', loyalTo: customer.loyalTo });
     } catch (error) {
@@ -191,11 +259,6 @@ exports.getUserById = async (req, res) => {
     }
 };
 
-/**
- * PATCH /api/users/fcm-token
- * Saves (or refreshes) the caller's FCM registration token so the server
- * can target this device with push notifications.
- */
 exports.saveFcmToken = async (req, res) => {
     try {
         const { fcmToken } = req.body;
@@ -210,18 +273,33 @@ exports.saveFcmToken = async (req, res) => {
     }
 };
 
-// Reusable version for Socket.IO (no req/res — returns plain data)
+// Reusable version for Socket.IO (Option B unified)
 exports.getProfileSocket = async (userId) => {
     const User = require('../model/users');
+    const Employee = require('../model/employee');
     const Restaurant = require('../model/restaurant');
 
+    // First try user collection
     const user = await User.findById(userId).select('-password').lean();
-    if (!user) throw new Error('User not found');
-
-    if (['owner', 'manager', 'employee'].includes(user.role)) {
-        const restaurant = await Restaurant.findOne({ owner: userId });
-        if (restaurant) user.restaurantId = restaurant._id;
+    if (user) {
+        if (user.role === 'owner') {
+            const restaurant = await Restaurant.findOne({ owner: userId });
+            if (restaurant) user.restaurantId = restaurant._id;
+        }
+        return user;
     }
 
-    return user;
+    // Try employee collection
+    const employee = await Employee.findById(userId).select('-password').lean();
+    if (employee) {
+        return {
+            _id: employee._id,
+            name: employee.name,
+            restaurantId: employee.restaurant,
+            role: employee.role,
+            isActive: employee.isActive
+        };
+    }
+
+    throw new Error('User/Employee not found');
 };

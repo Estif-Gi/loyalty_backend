@@ -8,8 +8,8 @@ exports.setupProgram = async (req, res) => {
 
         const { restaurant, limits, tier } = await getRestaurantAndLimits(restaurantId);
 
-        // Authorization check
-        if (restaurant.owner.toString() !== req.user.id && !['manager'].includes(req.user.role)) {
+        // Authorization check (Owner only)
+        if (restaurant.owner.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -26,9 +26,6 @@ exports.setupProgram = async (req, res) => {
         });
 
         await program.save();
-
-        restaurant.loyaltyProgram.push(program._id);
-        await restaurant.save();
 
         res.status(201).json(program);
     } catch (error) {
@@ -76,8 +73,8 @@ exports.updateProgram = async (req, res) => {
             return res.status(404).json({ message: 'Associated restaurant not found' });
         }
 
-        // Authorization check
-        if (restaurant.owner.toString() !== req.user.id && !['manager'].includes(req.user.role)) {
+        // Authorization check (Owner only)
+        if (restaurant.owner.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -108,8 +105,8 @@ exports.addReward = async (req, res) => {
             return res.status(404).json({ message: 'Associated restaurant not found' });
         }
 
-        // Authorization check
-        if (restaurant.owner.toString() !== req.user.id && !['manager'].includes(req.user.role)) {
+        // Authorization check (Owner only)
+        if (restaurant.owner.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -137,8 +134,8 @@ exports.removeReward = async (req, res) => {
             return res.status(404).json({ message: 'Associated restaurant not found' });
         }
 
-        // Authorization check
-        if (restaurant.owner.toString() !== req.user.id && !['manager'].includes(req.user.role)) {
+        // Authorization check (Owner only)
+        if (restaurant.owner.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 

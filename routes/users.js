@@ -7,8 +7,8 @@ router.post('/register', usersController.register);
 router.post('/login', usersController.login);
 router.get('/profile', verifyToken, usersController.getProfile);
 
-// Only owners, managers, and employees can add stamps
-router.post('/stamps', verifyToken, checkRole('owner', 'manager', 'employee'), usersController.addStamps);
+// Only owners, admins, and employees can add stamps
+router.post('/stamps', verifyToken, checkRole('owner', 'admin', 'employee'), usersController.addStamps);
 
 // Get all users (admin or owner only - adjust roles as needed)
 router.get('/', verifyToken, checkRole('admin', 'owner'), usersController.getAllUsers);

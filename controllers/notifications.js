@@ -321,6 +321,21 @@ exports.getNotifications = async (req, res) => {
       return res.status(400).json({ message: 'restaurantId query param required' });
     }
 
+    const Restaurant = require('../model/restaurant');
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Verify ownership or employee assignment
+    if (restaurant.owner.toString() !== req.user.id) {
+      if (req.user.role === 'employee' && req.employee && req.employee.restaurantId === restaurantId) {
+        // Authorized employee
+      } else {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+    }
+
     const notifications = await Notification.find({ restaurantId })
       .sort({ createdAt: -1 })
       .lean();
