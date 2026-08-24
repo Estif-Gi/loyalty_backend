@@ -527,3 +527,87 @@ exports.listTableAssignments = async (req, res) => {
     });
   }
 };
+
+exports.bulkCreateTables = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    const { tables, count, prefix, startNumber, description } = req.body;
+
+    await verifyRestaurantOwnership(restaurantId, req.user.id);
+
+    let tablesToCreate = [];
+
+    if (tables) {
+      // Option A: Explicit list of tables
+      tablesToCreate = tables.map(t => ({
+        restaurant: restaurantId,
+        name: t.name.trim(),
+        code: t.code.trim().toUpperCase(),
+        description: t.description ? t.description.trim() : null,
+        isActive: true
+      }));
+    } else {
+      // Option B: Auto-generated tables
+      const basePrefix = prefix !== undefined ? prefix.trim() : 'Table ';
+      const start = startNumber !== undefined ? startNumber : 1;
+      const desc = description ? description.trim() : null;
+
+      for (let i = 0; i < count; i++) {
+        const num = start + i;
+        const name = `${basePrefix}${num}`;
+        const code = name.trim().toUpperCase();
+
+        tablesToCreate.push({
+          restaurant: restaurantId,
+          name,
+          code,
+          description: desc,
+          isActive: true
+        });
+      }
+    }
+
+    // Check for duplicate codes within the batch itself
+    const codesInBatch = tablesToCreate.map(t => t.code);
+    const uniqueCodesInBatch = new Set(codesInBatch);
+    if (uniqueCodesInBatch.size !== codesInBatch.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'DUPLICATE_CODES_IN_BATCH',
+        message: 'The list of tables contains duplicate codes.'
+      });
+    }
+
+    // Check for duplicate codes against existing tables in the database for this restaurant
+    const existingTables = await RestaurantTable.find({
+      restaurant: restaurantId,
+      code: { $in: codesInBatch }
+    });
+
+    if (existingTables.length > 0) {
+      const existingCodes = existingTables.map(t => t.code);
+      return res.status(400).json({
+        success: false,
+        error: 'TABLE_CODES_ALREADY_EXIST',
+        message: `The following table codes already exist in this restaurant: ${existingCodes.join(', ')}`,
+        details: { existingCodes }
+      });
+    }
+
+    // Save tables
+    const createdTables = await RestaurantTable.insertMany(tablesToCreate);
+
+    res.status(201).json({
+      success: true,
+      data: createdTables.map(t => serializeTable(t))
+    });
+  } catch (error) {
+    console.error('🔥 Error in bulkCreateTables:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.errorCode || 'SERVER_ERROR',
+      message: error.message || 'Server error'
+    });
+  }
+};
+

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const tableController = require('../controllers/restaurantTableController');
 const { verifyToken, checkRole } = require('../middleware/auth');
-const { validateCreateTable, validateUpdateTable } = require('../validators/restaurantTableValidator');
+const { validateCreateTable, validateUpdateTable, validateBulkCreateTables } = require('../validators/restaurantTableValidator');
 
 router.post(
   '/:restaurantId/tables',
@@ -11,6 +11,15 @@ router.post(
   validateCreateTable,
   tableController.createTable
 );
+
+router.post(
+  '/:restaurantId/tables/bulk',
+  verifyToken,
+  checkRole('owner'),
+  validateBulkCreateTables,
+  tableController.bulkCreateTables
+);
+
 
 router.get(
   '/:restaurantId/tables',

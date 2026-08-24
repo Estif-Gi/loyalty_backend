@@ -1579,6 +1579,74 @@
 					"response": []
 				},
 				{
+					"name": "Bulk Create Tables (Generator)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"count\": 10,\n    \"prefix\": \"Table \",\n    \"startNumber\": 1,\n    \"description\": \"Main Hall\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/bulk",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"bulk"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Create Tables (Custom List)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tables\": [\n        {\n            \"name\": \"V.I.P 1\",\n            \"code\": \"VIP1\",\n            \"description\": \"Luxury lounge\"\n        },\n        {\n            \"name\": \"V.I.P 2\",\n            \"code\": \"VIP2\",\n            \"description\": \"Luxury lounge\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/tables/bulk",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"tables",
+								"bulk"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "List Tables",
 					"request": {
 						"method": "GET",
