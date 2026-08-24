@@ -3,6 +3,8 @@ const Order = require('../model/order');
 const { resolveNextTransition } = require('../services/orderWorkflowService');
 const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
 
+const Restaurant = require('../model/restaurant');
+
 /**
  * Serializes order document for staff queue (including full operational metadata).
  */
@@ -29,10 +31,47 @@ function serializeOrderForEmployee(order) {
 
 exports.getEmployeeOrders = async (req, res) => {
   try {
-    const restaurantId = req.employee.restaurantId;
     const { status } = req.query; // 'active' or 'history'
+    const query = {};
 
-    const query = { restaurant: restaurantId };
+    if (req.user.role === 'owner') {
+      const filterId = req.query.restaurantId;
+      if (filterId) {
+        // Enforce valid ObjectId
+        if (!mongoose.isValidObjectId(filterId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid restaurant ID format.'
+          });
+        }
+        const ownedRestaurant = await Restaurant.findOne({ _id: filterId, owner: req.user.id });
+        if (!ownedRestaurant) {
+          return res.status(403).json({
+            success: false,
+            error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+            message: 'Not authorized. You do not own this restaurant.'
+          });
+        }
+        query.restaurant = filterId;
+      } else {
+        const ownedRestaurants = await Restaurant.find({ owner: req.user.id });
+        if (!ownedRestaurants || ownedRestaurants.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'No restaurants found for this owner.'
+          });
+        }
+        query.restaurant = { $in: ownedRestaurants.map(r => r._id) };
+      }
+    } else if (req.user.role === 'employee' && req.employee) {
+      query.restaurant = req.employee.restaurantId;
+    } else {
+      return res.status(403).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+        message: 'Access denied.'
+      });
+    }
 
     if (status === 'active') {
       query.systemState = { $in: [SYSTEM_STATES.OPEN, SYSTEM_STATES.IN_PROGRESS] };
@@ -40,13 +79,20 @@ exports.getEmployeeOrders = async (req, res) => {
       query.systemState = { $in: [SYSTEM_STATES.COMPLETED, SYSTEM_STATES.CANCELLED] };
     }
 
-    // Sort queue oldest-first for operational efficiency (kitchen/waiters prep queue)
+    // Sort active oldest-first, history newest-first
+    const sortOrder = status === 'history' ? { createdAt: -1 } : { createdAt: 1 };
+
     const orders = await Order.find(query)
       .populate('table', 'name code')
-      .sort({ createdAt: 1 });
+      .populate('customer', 'name phone')
+      .populate('service.waiter', 'name role')
+      .sort(sortOrder);
 
     // Filter queue based on step role visibility and waiter table assignment
     const visibleOrders = orders.filter((order) => {
+      // Owners bypass all visibility filters
+      if (req.user.role === 'owner') return true;
+
       const step = order.workflow.steps.find((s) => s.key === order.currentStepKey);
       if (!step) return false;
       if (!step.visibleToRoles || step.visibleToRoles.length === 0) return true;
@@ -54,7 +100,11 @@ exports.getEmployeeOrders = async (req, res) => {
 
       // Waiters are restricted to their assigned orders (Section 24)
       if (req.employee.role === 'waiter') {
-        return order.service && order.service.waiter && order.service.waiter.toString() === req.employee.id;
+        if (!order.service || !order.service.waiter) return false;
+        const waiterId = order.service.waiter._id 
+          ? order.service.waiter._id.toString() 
+          : order.service.waiter.toString();
+        return waiterId === req.employee.id;
       }
 
       return true;
@@ -119,7 +169,10 @@ exports.advanceOrder = async (req, res) => {
 
     // Verify waiter assignment restriction (Section 28)
     if (req.employee.role === 'waiter' && order.service && order.service.waiter) {
-      if (order.service.waiter.toString() !== req.employee.id) {
+      const waiterId = order.service.waiter._id 
+        ? order.service.waiter._id.toString() 
+        : order.service.waiter.toString();
+      if (waiterId !== req.employee.id) {
         return res.status(403).json({
           success: false,
           error: 'ORDER_ASSIGNED_TO_ANOTHER_WAITER',

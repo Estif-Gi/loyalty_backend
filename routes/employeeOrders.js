@@ -3,10 +3,10 @@ const router = express.Router();
 const employeeOrderController = require('../controllers/employeeOrderController');
 const { verifyToken } = require('../middleware/auth');
 
-// All queue/transitions operations require employee token verification
+// All queue/transitions operations require token verification
 router.get(
   '/',
-  verifyToken,
+  verifyToken, // Supports employee and owner roles
   employeeOrderController.getEmployeeOrders
 );
 

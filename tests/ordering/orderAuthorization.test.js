@@ -140,4 +140,58 @@ describe('Order Authorization and Restaurant Isolation Tests', () => {
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('ORDER_ACCESS_DENIED');
   });
+
+  test('Owner can view Restaurant A order queue with populated details', async () => {
+    const ownerToken = jwt.sign({ id: ownerUser._id, role: 'owner' }, process.env.JWT_SECRET);
+    const res = await request(app)
+      .get('/api/employee/orders')
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.orders.length).toBe(1);
+    
+    const order = res.body.data.orders[0];
+    expect(order.id).toBe(orderAId);
+    
+    // Check populated table
+    expect(order.table).toBeDefined();
+    expect(order.table.name).toBe('Table A');
+    expect(order.table.code).toBe('TA');
+
+    // Check populated customer details
+    expect(order.customer).toBeDefined();
+    expect(order.customer.name).toBe('Customer A');
+    expect(order.customer.phone).toBe('+251910000009');
+    expect(order.customer.password).toBeUndefined(); // Verify password was not returned
+
+    // Check populated waiter details
+    expect(order.service).toBeDefined();
+    expect(order.service.waiter).toBeDefined();
+    expect(order.service.waiter.name).toBe('Waiter A');
+    expect(order.service.waiter.role).toBe('waiter');
+  });
+
+  test('Owner can filter order queue by restaurantId', async () => {
+    const ownerToken = jwt.sign({ id: ownerUser._id, role: 'owner' }, process.env.JWT_SECRET);
+    const res = await request(app)
+      .get(`/api/employee/orders?restaurantId=${restaurantA._id}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.orders.length).toBe(1);
+    expect(res.body.data.orders[0].id).toBe(orderAId);
+  });
+
+  test('Owner is blocked from retrieving queue of restaurant they do not own', async () => {
+    // Create another owner
+    const otherOwner = await User.create({ name: 'Other Owner', phone: '+251910000099', password: 'password123', role: 'owner' });
+    const otherOwnerToken = jwt.sign({ id: otherOwner._id, role: 'owner' }, process.env.JWT_SECRET);
+
+    const res = await request(app)
+      .get(`/api/employee/orders?restaurantId=${restaurantA._id}`)
+      .set('Authorization', `Bearer ${otherOwnerToken}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('ORDER_ACCESS_DENIED');
+  });
 });

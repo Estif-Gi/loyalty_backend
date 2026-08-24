@@ -2274,6 +2274,42 @@
 			"name": "Orders — Employee",
 			"item": [
 				{
+					"name": "Get Restaurant Orders (Owner)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders?status=active&restaurantId={{restaurantId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "active"
+								},
+								{
+									"key": "restaurantId",
+									"value": "{{restaurantId}}",
+									"description": "Optional: Filter by specific restaurant owned by the owner"
+								}
+							]
+						},
+						"description": "Restaurant owner retrieves the active order queue. Bypasses staff role visibility filters. Supports optional restaurantId filtering."
+					},
+					"response": []
+				},
+				{
 					"name": "Get Staff Order Queue",
 					"request": {
 						"method": "GET",
