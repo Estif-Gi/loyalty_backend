@@ -33,3 +33,6 @@ coverage/
 *.tmp
 *.temp
 *.swp
+
+# documentation files
+*.md
