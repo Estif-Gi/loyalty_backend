@@ -171,11 +171,11 @@ exports.createEmployee = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
-        // Count ONLY active staff against limits
-        const activeEmployeeCount = await Employee.countDocuments({ restaurant: id, isActive: true });
-        if (activeEmployeeCount >= limits.staff) {
+        // Count ALL staff accounts (both active and inactive) against limits to prevent deactivation bypass
+        const employeeCount = await Employee.countDocuments({ restaurant: id });
+        if (employeeCount >= limits.staff) {
             return res.status(400).json({ 
-                message: `Staff account limit reached (${activeEmployeeCount}/${limits.staff} accounts) for the ${tier.toUpperCase()} tier. Please upgrade your subscription.` 
+                message: `Staff account limit reached (${employeeCount}/${limits.staff} accounts) for the ${tier.toUpperCase()} tier. Please upgrade your subscription.` 
             });
         }
 
@@ -369,6 +369,16 @@ exports.updateEmployee = async (req, res) => {
         }
 
         if (isActive !== undefined) {
+            if (isActive && !employee.isActive) {
+                // Check if activating this employee exceeds the active limit
+                const activeEmployeeCount = await Employee.countDocuments({ restaurant: id, isActive: true });
+                const { limits, tier } = await getRestaurantAndLimits(id);
+                if (activeEmployeeCount >= limits.staff) {
+                    return res.status(400).json({
+                        message: `Staff account limit reached (${activeEmployeeCount}/${limits.staff} accounts) for the ${tier.toUpperCase()} tier. Please upgrade your subscription.`
+                    });
+                }
+            }
             employee.isActive = isActive;
         }
 
@@ -392,6 +402,48 @@ exports.updateEmployee = async (req, res) => {
         res.json(responseObj);
     } catch (error) {
         console.error("🔥 Error in updateEmployee:", error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+exports.deleteEmployee = async (req, res) => {
+    const { id, employeeId } = req.params;
+
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(employeeId)) {
+        return res.status(400).json({ message: 'Invalid restaurant ID or employee ID format' });
+    }
+
+    try {
+        const restaurant = await Restaurant.findById(id);
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        if (restaurant.owner.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const employee = await Employee.findOne({ _id: employeeId, restaurant: id });
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found in this restaurant' });
+        }
+
+        await Employee.deleteOne({ _id: employeeId });
+
+        // Unassign from any tables
+        await RestaurantTable.updateMany(
+            { assignedWaiter: employeeId },
+            { $set: { assignedWaiter: null, waiterAssignedAt: null } }
+        );
+
+        // Update active employee count on restaurant
+        const newActiveCount = await Employee.countDocuments({ restaurant: id, isActive: true });
+        restaurant.employeeCount = newActiveCount;
+        await restaurant.save();
+
+        res.json({ message: 'Employee deleted successfully' });
+    } catch (error) {
+        console.error("🔥 Error in deleteEmployee:", error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

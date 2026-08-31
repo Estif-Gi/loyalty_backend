@@ -67,7 +67,14 @@ The transition system dynamically checks permissions based on the *next* active 
 ### 2. Fresh Location Verification
 A customer may check in, get a session, and walk away. Therefore, when submitting `POST /api/orders`, the customer must supply a **fresh** geolocation reading. The backend performs a geofence verification on this fresh coordinate before creating the order ticket.
 
-### 3. Server-Side Pricing Guard
+### 3. Stable Table QR Code Infrastructure & Cryptography
+- **Stable Physical Signage**: Table QR codes are stable, long-lived operational assets. Once printed and placed on a table, the QR code continues working indefinitely.
+- **Role Isolation**: Restaurant Owners can generate, view, download, and print table QRs. Only platform Administrators are permitted to rotate or revoke them.
+- **At-Rest Encryption**: To prevent unauthorized credential recovery while still allowing owners to view/reprint the exact same QR code, the raw secure token is encrypted at rest using `aes-256-gcm` with the server environment key `QR_TOKEN_ENCRYPTION_KEY`.
+- **Customer Verification**: Customer validation uses SHA-256 hashes of scanned tokens (`tokenHash`) for secure lookup, avoiding the need to decrypt database values during ordering flows.
+- **Legacy Migration Handling**: Legacy QR records created without encryption ciphertext cannot be recovered and will return a `QR_CREDENTIAL_NOT_RECOVERABLE` error, directing the owner to contact an administrator for rotation.
+
+### 4. Server-Side Pricing Guard
 The frontend cannot determine item prices, subtotals, or totals. It only submits `menuItemId` and `quantity`. The backend fetches items from the Mongoose sub-document `Menu` collection and calculates line totals, subtotals, and totals server-side.
 
 ### 4. Workflow Snapshotting & Auto-Advance

@@ -3,6 +3,7 @@ const RestaurantTable = require('../model/restaurantTable');
 const RestaurantQrCode = require('../model/restaurantQrCode');
 const Restaurant = require('../model/restaurant');
 const { generateRawToken, hashToken, buildQrUrl } = require('../services/qrCodeService');
+const { encryptQrToken, decryptQrToken } = require('../utils/crypto');
 
 /**
  * Helper to verify ownership of the restaurant.
@@ -64,11 +65,13 @@ exports.generateQrCode = async (req, res) => {
 
     const rawToken = generateRawToken();
     const tokenHash = hashToken(rawToken);
+    const encryptedToken = encryptQrToken(rawToken);
 
     const qrCode = new RestaurantQrCode({
       restaurant: restaurantId,
       table: tableId,
       tokenHash,
+      encryptedToken,
       isActive: true,
       createdBy: req.user.id
     });
@@ -101,7 +104,22 @@ exports.rotateQrCode = async (req, res) => {
   try {
     const { restaurantId, tableId } = req.params;
 
-    await verifyRestaurantOwnership(restaurantId, req.user.id);
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'ADMIN_PERMISSION_REQUIRED',
+        message: 'Only a platform administrator can rotate or revoke a table QR code.'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        error: 'RESTAURANT_NOT_FOUND',
+        message: 'Restaurant not found.'
+      });
+    }
 
     const table = await RestaurantTable.findOne({ _id: tableId, restaurant: restaurantId });
     if (!table) {
@@ -128,11 +146,13 @@ exports.rotateQrCode = async (req, res) => {
 
     const rawToken = generateRawToken();
     const tokenHash = hashToken(rawToken);
+    const encryptedToken = encryptQrToken(rawToken);
 
     const qrCode = new RestaurantQrCode({
       restaurant: restaurantId,
       table: tableId,
       tokenHash,
+      encryptedToken,
       isActive: true,
       createdBy: req.user.id
     });
@@ -165,7 +185,22 @@ exports.revokeQrCode = async (req, res) => {
   try {
     const { restaurantId, tableId, qrCodeId } = req.params;
 
-    await verifyRestaurantOwnership(restaurantId, req.user.id);
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'ADMIN_PERMISSION_REQUIRED',
+        message: 'Only a platform administrator can rotate or revoke a table QR code.'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        error: 'RESTAURANT_NOT_FOUND',
+        message: 'Restaurant not found.'
+      });
+    }
 
     if (!mongoose.isValidObjectId(qrCodeId)) {
       return res.status(400).json({
@@ -224,11 +259,57 @@ exports.getQrCodeMetadata = async (req, res) => {
     const qrCodes = await RestaurantQrCode.find({
       restaurant: restaurantId,
       table: tableId
-    }).select('-tokenHash'); // Never return the tokenHash
+    });
+
+    const activeQr = qrCodes.find(q => q.isActive);
+
+    if (activeQr) {
+      if (!activeQr.encryptedToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'QR_CREDENTIAL_NOT_RECOVERABLE',
+          message: 'This QR was created using the previous QR storage format and cannot be reprinted.'
+        });
+      }
+
+      try {
+        const decryptedToken = decryptQrToken(activeQr.encryptedToken);
+        const orderingUrl = buildQrUrl(decryptedToken);
+
+        const safeQrCodes = qrCodes.map(q => {
+          const obj = q.toObject();
+          delete obj.tokenHash;
+          delete obj.encryptedToken;
+          if (obj.isActive) {
+            obj.url = orderingUrl;
+          }
+          return obj;
+        });
+
+        return res.json({
+          success: true,
+          data: safeQrCodes
+        });
+      } catch (cryptoErr) {
+        console.error('🔥 Crypto decryption failed for active QR:', cryptoErr);
+        return res.status(400).json({
+          success: false,
+          error: 'QR_CREDENTIAL_NOT_RECOVERABLE',
+          message: 'This QR was created using the previous QR storage format and cannot be reprinted.'
+        });
+      }
+    }
+
+    const safeQrCodes = qrCodes.map(q => {
+      const obj = q.toObject();
+      delete obj.tokenHash;
+      delete obj.encryptedToken;
+      return obj;
+    });
 
     res.json({
       success: true,
-      data: qrCodes
+      data: safeQrCodes
     });
   } catch (error) {
     console.error('🔥 Error in getQrCodeMetadata:', error);

@@ -5,6 +5,8 @@ const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
 require("dotenv").config();
+const { validateEncryptionConfig } = require('./utils/crypto');
+validateEncryptionConfig();
 const { setIo } = require('./sockets/ioInstance');
 
 const rateLimit = require('express-rate-limit');

@@ -23,7 +23,7 @@ router.get(
 router.patch(
   '/:restaurantId/tables/:tableId/qr/rotate',
   verifyToken,
-  checkRole('owner'),
+  checkRole('owner', 'admin'),
   validateQrParams,
   qrCodeController.rotateQrCode
 );
@@ -31,7 +31,7 @@ router.patch(
 router.patch(
   '/:restaurantId/tables/:tableId/qr/:qrCodeId/revoke',
   verifyToken,
-  checkRole('owner'),
+  checkRole('owner', 'admin'),
   validateQrParams,
   validateQrCodeIdParam,
   qrCodeController.revokeQrCode

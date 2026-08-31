@@ -28,6 +28,9 @@ router.get('/:id/employees/:employeeId', verifyToken, checkRole('owner'), restau
 // Update restaurant employee role/status (owner only)
 router.patch('/:id/employees/:employeeId', verifyToken, checkRole('owner'), restaurantsController.updateEmployee);
 
+// Delete restaurant employee (owner only)
+router.delete('/:id/employees/:employeeId', verifyToken, checkRole('owner'), restaurantsController.deleteEmployee);
+
 // Get restaurant by logged-in employee (authenticated employee only)
 router.get('/employee/me', verifyToken, restaurantsController.getRestaurantByEmployeeId);
 

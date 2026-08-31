@@ -21,6 +21,10 @@ const restaurantQrCodeSchema = new Schema(
       unique: true,
       index: true
     },
+    encryptedToken: {
+      type: String,
+      default: null
+    },
     isActive: {
       type: Boolean,
       default: true,

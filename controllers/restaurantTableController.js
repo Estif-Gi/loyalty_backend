@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 const RestaurantTable = require('../model/restaurantTable');
 const Restaurant = require('../model/restaurant');
 const Employee = require('../model/employee');
+const RestaurantQrCode = require('../model/restaurantQrCode');
 
-function serializeTable(table) {
+function serializeTable(table, activeQrTableIds = new Set()) {
   return {
     id: table._id,
     name: table.name,
@@ -16,6 +17,7 @@ function serializeTable(table) {
       role: table.assignedWaiter.role
     } : null,
     waiterAssignedAt: table.waiterAssignedAt,
+    hasActiveQr: activeQrTableIds.has(table._id.toString()),
     createdAt: table.createdAt,
     updatedAt: table.updatedAt
   };
@@ -128,9 +130,12 @@ exports.getTables = async (req, res) => {
 
     const tables = await RestaurantTable.find({ restaurant: restaurantId }).populate('assignedWaiter', 'name role');
 
+    const activeQrs = await RestaurantQrCode.find({ restaurant: restaurantId, isActive: true });
+    const activeQrTableIds = new Set(activeQrs.map(q => q.table.toString()));
+
     res.json({
       success: true,
-      data: tables.map((t) => serializeTable(t))
+      data: tables.map((t) => serializeTable(t, activeQrTableIds))
     });
   } catch (error) {
     console.error('🔥 Error in getTables:', error);
