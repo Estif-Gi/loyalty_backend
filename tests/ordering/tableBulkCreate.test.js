@@ -45,8 +45,9 @@ describe('Bulk Table Creation Integration Checks', () => {
       orderingLocation: { type: 'Point', coordinates: [38.7500, 9.0200] },
       orderingRadiusMeters: 100,
       orderWorkflow: [
-        { key: 'placed', label: 'Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['chef'] },
-        { key: 'completed', label: 'Done', systemState: 'COMPLETED', enabled: true, required: true, order: 2, actionRoles: ['cashier'] }
+        { key: 'placed', label: 'Order Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'served', label: 'Served', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'completed', label: 'Completed', systemState: 'COMPLETED', enabled: true, required: true, order: 3, actionRoles: [], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: null }
       ]
     });
   });

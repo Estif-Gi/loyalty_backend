@@ -146,9 +146,9 @@ async function createOrder({
     };
   }
 
-  // Determine current step key & timeline entries based on autoAdvance (Section 20 & 21)
-  let currentStepKey = firstStep.key;
-  let systemState = firstStep.systemState;
+  // Initial step key and timeline
+  const currentStepKey = firstStep.key;
+  const systemState = firstStep.systemState;
   const timeline = [
     {
       stepKey: firstStep.key,
@@ -159,20 +159,6 @@ async function createOrder({
       note: 'Order successfully created via table check-in.'
     }
   ];
-
-  if (firstStep.autoAdvance && sortedSteps.length > 1) {
-    const nextStep = sortedSteps[1];
-    currentStepKey = nextStep.key;
-    systemState = nextStep.systemState;
-    timeline.push({
-      stepKey: nextStep.key,
-      systemState: nextStep.systemState,
-      actorType: 'system',
-      actorId: restaurant._id,
-      action: 'auto_started_preparation',
-      note: 'Order automatically transitioned to preparation.'
-    });
-  }
 
   // 7. Assemble Order
   const order = new Order({

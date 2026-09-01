@@ -80,52 +80,29 @@ const orderWorkflowStepSchema = new Schema(
 const DEFAULT_WORKFLOW = [
   {
     key: "placed",
-    label: "New Order",
+    label: "Order Placed",
     systemState: "OPEN",
-    responsibleRole: "chef",
-    visibleToRoles: ["chef", "waiter", "cashier"],
-    actionRoles: ["chef"],
-    actionLabel: "Start Preparing",
-    order: 1,
-    enabled: true,
-    required: true,
-    autoAdvance: true
-  },
-  {
-    key: "preparing",
-    label: "Preparing",
-    systemState: "IN_PROGRESS",
-    responsibleRole: "chef",
-    visibleToRoles: ["chef", "waiter", "cashier"],
-    actionRoles: ["chef"],
-    actionLabel: "Mark Ready",
-    order: 2,
-    enabled: true,
-    required: false
-  },
-  {
-    key: "ready",
-    label: "Ready",
-    systemState: "IN_PROGRESS",
     responsibleRole: "waiter",
     visibleToRoles: ["chef", "waiter", "cashier"],
     actionRoles: ["waiter"],
     actionLabel: "Mark Served",
-    order: 3,
+    order: 1,
     enabled: true,
-    required: false
+    required: true,
+    autoAdvance: false
   },
   {
-    key: "serving",
-    label: "Serving",
+    key: "served",
+    label: "Served",
     systemState: "IN_PROGRESS",
     responsibleRole: "waiter",
     visibleToRoles: ["chef", "waiter", "cashier"],
     actionRoles: ["waiter"],
     actionLabel: "Complete Order",
-    order: 4,
-    enabled: false,
-    required: false
+    order: 2,
+    enabled: true,
+    required: false,
+    autoAdvance: false
   },
   {
     key: "completed",
@@ -135,9 +112,10 @@ const DEFAULT_WORKFLOW = [
     visibleToRoles: ["chef", "waiter", "cashier"],
     actionRoles: [],
     actionLabel: null,
-    order: 5,
+    order: 3,
     enabled: true,
-    required: true
+    required: true,
+    autoAdvance: false
   }
 ];
 

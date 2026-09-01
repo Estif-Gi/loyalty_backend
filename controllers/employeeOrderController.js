@@ -5,10 +5,55 @@ const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
 
 const Restaurant = require('../model/restaurant');
 
+const { getNextWorkflowStep, canRoleAdvanceWorkflowStep } = require('../utils/workflow');
+
 /**
  * Serializes order document for staff queue (including full operational metadata).
  */
-function serializeOrderForEmployee(order) {
+function serializeOrderForEmployee(order, employee = null) {
+  let currentStep = null;
+  let availableAction = null;
+
+  if (order.workflow && Array.isArray(order.workflow.steps)) {
+    const stepConfig = order.workflow.steps.find((s) => s.key === order.currentStepKey);
+    if (stepConfig) {
+      currentStep = {
+        key: stepConfig.key,
+        label: stepConfig.label,
+        actionLabel: stepConfig.actionLabel
+      };
+
+      if (employee) {
+        const nextStep = getNextWorkflowStep(order.workflow.steps, order.currentStepKey);
+        if (nextStep) {
+          const isRoleAllowed = canRoleAdvanceWorkflowStep({
+            employeeRole: employee.role,
+            employeePermissions: employee.permissions || [],
+            workflowStep: stepConfig,
+            nextStepKey: nextStep.key
+          });
+
+          let isAssignedWaiter = true;
+          if (employee.role === 'waiter' && order.service && order.service.waiter) {
+            const waiterId = order.service.waiter._id 
+              ? order.service.waiter._id.toString() 
+              : order.service.waiter.toString();
+            if (waiterId !== employee.id) {
+              isAssignedWaiter = false;
+            }
+          }
+
+          if (isRoleAllowed && isAssignedWaiter && order.systemState !== SYSTEM_STATES.CANCELLED && order.systemState !== SYSTEM_STATES.COMPLETED) {
+            availableAction = {
+              canAdvance: true,
+              label: stepConfig.actionLabel || (nextStep.key === 'served' ? 'Mark Served' : 'Complete Order')
+            };
+          }
+        }
+      }
+    }
+  }
+
   return {
     id: order._id,
     orderNumber: order.orderNumber,
@@ -18,12 +63,15 @@ function serializeOrderForEmployee(order) {
     pricing: order.pricing,
     currentStepKey: order.currentStepKey,
     systemState: order.systemState,
+    currentStep,
+    availableAction,
     kitchen: order.kitchen,
     service: order.service,
     payment: order.payment,
     timeline: order.timeline,
     customerNotes: order.customerNotes,
-    cancellation: order.cancellation.cancelledAt ? order.cancellation : null,
+    cancellation: order.cancellation?.cancelledAt ? order.cancellation : null,
+    workflow: order.workflow, // Expose workflow steps snapshot to employees
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   };
@@ -113,7 +161,7 @@ exports.getEmployeeOrders = async (req, res) => {
     res.json({
       success: true,
       data: {
-        orders: visibleOrders.map((o) => serializeOrderForEmployee(o))
+        orders: visibleOrders.map((o) => serializeOrderForEmployee(o, req.employee))
       }
     });
   } catch (error) {
@@ -198,19 +246,17 @@ exports.advanceOrder = async (req, res) => {
       systemState: nextStep.systemState
     };
 
-    // Kitchen responsibility updates
-    if (nextStep.key === 'preparing') {
-      updateSet['kitchen.startedBy'] = req.employee.id;
-      updateSet['kitchen.startedAt'] = new Date();
-    }
-    if (nextStep.key === 'ready') {
-      updateSet['kitchen.readyBy'] = req.employee.id;
-      updateSet['kitchen.readyAt'] = new Date();
-    }
-    if (nextStep.key === 'completed') {
+    if (nextStep.key === 'served') {
       updateSet['service.servedAt'] = new Date();
     }
-    updateSet['kitchen.lastHandledBy'] = req.employee.id;
+
+    const timelineAction = nextStep.key === 'served'
+      ? 'order_served'
+      : (nextStep.key === 'completed' ? 'order_completed' : 'workflow_advanced');
+
+    const timelineNote = nextStep.key === 'served'
+      ? 'Order marked as served.'
+      : (nextStep.key === 'completed' ? 'Order completed.' : `Step advanced to ${nextStep.key} by ${req.employee.role}`);
 
     // Atomically transition status
     const updatedOrder = await Order.findOneAndUpdate(
@@ -227,8 +273,8 @@ exports.advanceOrder = async (req, res) => {
             actorType: 'employee',
             actorId: req.employee.id,
             actorRole: req.employee.role,
-            action: 'workflow_advanced',
-            note: `Step advanced to ${nextStep.key} by ${req.employee.role}`
+            action: timelineAction,
+            note: timelineNote
           }
         }
       },
@@ -246,7 +292,7 @@ exports.advanceOrder = async (req, res) => {
     res.json({
       success: true,
       data: {
-        order: serializeOrderForEmployee(updatedOrder)
+        order: serializeOrderForEmployee(updatedOrder, req.employee)
       }
     });
   } catch (error) {

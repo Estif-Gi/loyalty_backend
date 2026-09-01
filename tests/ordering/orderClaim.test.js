@@ -109,11 +109,9 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
   });
 
   test('Waiter claim endpoint returns 410 Gone / Deprecated', async () => {
-    // 1. Assign waiter to table
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create order
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -127,22 +125,19 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(createRes.status).toBe(201);
     const orderId = createRes.body.data.order.id;
 
-    // 3. Try claiming it
     const claimRes = await request(app)
       .post(`/api/employee/orders/${orderId}/claim`)
       .set('Authorization', `Bearer ${waiterAToken}`)
-      .send({ expectedStep: 'preparing' });
+      .send({ expectedStep: 'placed' });
 
     expect(claimRes.status).toBe(410);
     expect(claimRes.body.error).toBe('ORDER_CLAIM_DEPRECATED');
   });
 
-  test('Table-based waiter assignment and auto-advance to preparing', async () => {
-    // 1. Assign waiter to table
+  test('Table-based waiter assignment and initial PLACED state with order_created timeline', async () => {
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create order
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -160,20 +155,17 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(order.service.waiter).toBe(waiterA._id.toString());
     expect(order.service.assignmentSource).toBe('table');
 
-    // Auto-advance checking: PLACED -> PREPARING
-    expect(order.currentStepKey).toBe('preparing');
-    expect(order.systemState).toBe('IN_PROGRESS');
+    // Initial state: PLACED / OPEN (no auto advance to preparing)
+    expect(order.currentStepKey).toBe('placed');
+    expect(order.systemState).toBe('OPEN');
 
-    // Timeline preserves both events
-    expect(order.timeline.length).toBe(2);
+    // Timeline has single order_created event
+    expect(order.timeline.length).toBe(1);
     expect(order.timeline[0].stepKey).toBe('placed');
     expect(order.timeline[0].action).toBe('order_created');
-    expect(order.timeline[1].stepKey).toBe('preparing');
-    expect(order.timeline[1].action).toBe('auto_started_preparation');
   });
 
   test('Order creation blocked if table has no assigned waiter', async () => {
-    // Table does not have assignedWaiter (default null)
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -189,7 +181,6 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
   });
 
   test('Order creation blocked if assigned waiter is inactive', async () => {
-    // 1. Assign waiter and set inactive
     waiterA.isActive = false;
     await waiterA.save();
 
@@ -211,11 +202,9 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
   });
 
   test('Waiter assignment is historical and table re-assignments affect only new orders', async () => {
-    // 1. Assign Waiter A to table
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create Order #1
     const res1 = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -228,15 +217,12 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(res1.status).toBe(201);
     expect(res1.body.data.order.service.waiter).toBe(waiterA._id.toString());
 
-    // 3. Reassign table to Waiter B
     table.assignedWaiter = waiterB._id;
     await table.save();
 
-    // 4. Verify Order #1 still belongs to Waiter A
     const order1 = await Order.findById(res1.body.data.order.id);
     expect(order1.service.waiter.toString()).toBe(waiterA._id.toString());
 
-    // 5. Create Order #2
     const res2 = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -251,11 +237,9 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
   });
 
   test('Waiter queue returns only assigned orders while Chef queue is restaurant-wide', async () => {
-    // 1. Assign Waiter A to table
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create Order #1 (Assigned to Waiter A)
     const res1 = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -267,11 +251,9 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
       });
     expect(res1.status).toBe(201);
 
-    // 3. Reassign table to Waiter B
     table.assignedWaiter = waiterB._id;
     await table.save();
 
-    // 4. Create Order #2 (Assigned to Waiter B)
     const res2 = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -283,7 +265,6 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
       });
     expect(res2.status).toBe(201);
 
-    // 5. Waiter A retrieves queue -> gets Order #1, not Order #2
     const waiterARes = await request(app)
       .get('/api/employee/orders?status=active')
       .set('Authorization', `Bearer ${waiterAToken}`);
@@ -291,7 +272,6 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(waiterARes.body.data.orders.length).toBe(1);
     expect(waiterARes.body.data.orders[0].id).toBe(res1.body.data.order.id);
 
-    // 6. Waiter B retrieves queue -> gets Order #2, not Order #1
     const waiterBRes = await request(app)
       .get('/api/employee/orders?status=active')
       .set('Authorization', `Bearer ${waiterBToken}`);
@@ -299,7 +279,7 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(waiterBRes.body.data.orders.length).toBe(1);
     expect(waiterBRes.body.data.orders[0].id).toBe(res2.body.data.order.id);
 
-    // 7. Chef Gordon retrieves queue -> gets both Order #1 and Order #2 (restaurant-wide)
+    // Chef Gordon retrieves queue -> gets both Order #1 and Order #2 (restaurant-wide visibility)
     const chefRes = await request(app)
       .get('/api/employee/orders?status=active')
       .set('Authorization', `Bearer ${chefToken}`);
@@ -307,12 +287,10 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(chefRes.body.data.orders.length).toBe(2);
   });
 
-  test('Waiter B blocked from serving Waiter A order', async () => {
-    // 1. Assign table to Waiter A
+  test('Waiter B blocked from serving Waiter A order (placed -> served and served -> completed)', async () => {
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create order (goes to preparing)
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -325,29 +303,36 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(createRes.status).toBe(201);
     const orderId = createRes.body.data.order.id;
 
-    // 3. Chef Gordon advances order preparing -> ready
-    const readyRes = await request(app)
-      .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${chefToken}`)
-      .send({ expectedStep: 'preparing' });
-    expect(readyRes.status).toBe(200);
-
-    // 4. Waiter B (not assigned) tries to advance ready -> completed (serving)
+    // 1. Waiter B (not assigned) tries to advance placed -> served
     const serveRes = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
       .set('Authorization', `Bearer ${waiterBToken}`)
-      .send({ expectedStep: 'ready' });
+      .send({ expectedStep: 'placed' });
 
     expect(serveRes.status).toBe(403);
     expect(serveRes.body.error).toBe('ORDER_ASSIGNED_TO_ANOTHER_WAITER');
+
+    // 2. Waiter A advances placed -> served
+    const waiterAServeRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterAToken}`)
+      .send({ expectedStep: 'placed' });
+    expect(waiterAServeRes.status).toBe(200);
+
+    // 3. Waiter B tries to complete Waiter A's order (served -> completed)
+    const completeRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterBToken}`)
+      .send({ expectedStep: 'served' });
+
+    expect(completeRes.status).toBe(403);
+    expect(completeRes.body.error).toBe('ORDER_ASSIGNED_TO_ANOTHER_WAITER');
   });
 
-  test('Waiter A serves own order (ready -> completed) and updates servedAt timeline', async () => {
-    // 1. Assign table to Waiter A
+  test('Waiter A serves own order (placed -> served -> completed) and updates servedAt', async () => {
     table.assignedWaiter = waiterA._id;
     await table.save();
 
-    // 2. Create order (auto transitions to preparing)
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -360,25 +345,99 @@ describe('Order Table Assignment and Operational Workflow Integration Tests', ()
     expect(createRes.status).toBe(201);
     const orderId = createRes.body.data.order.id;
 
-    // 3. Chef Gordon advances preparing -> ready
-    const readyRes = await request(app)
-      .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${chefToken}`)
-      .send({ expectedStep: 'preparing' });
-    expect(readyRes.status).toBe(200);
-    expect(readyRes.body.data.order.kitchen.readyBy).toBe(chefEmployee._id.toString());
-    expect(readyRes.body.data.order.kitchen.readyAt).not.toBeNull();
-
-    // 4. Waiter A advances ready -> completed
+    // 1. Waiter A advances placed -> served
     const serveRes = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
       .set('Authorization', `Bearer ${waiterAToken}`)
-      .send({ expectedStep: 'ready' });
+      .send({ expectedStep: 'placed' });
 
     expect(serveRes.status).toBe(200);
-    const updated = serveRes.body.data.order;
+    expect(serveRes.body.data.order.currentStepKey).toBe('served');
+    expect(serveRes.body.data.order.systemState).toBe('IN_PROGRESS');
+    expect(serveRes.body.data.order.service.servedAt).not.toBeNull();
+
+    // 2. Waiter A advances served -> completed
+    const completeRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterAToken}`)
+      .send({ expectedStep: 'served' });
+
+    expect(completeRes.status).toBe(200);
+    const updated = completeRes.body.data.order;
     expect(updated.currentStepKey).toBe('completed');
     expect(updated.systemState).toBe('COMPLETED');
     expect(updated.service.servedAt).not.toBeNull();
+  });
+
+  test('Waiter A completes order while unpaid (payment.status remains unpaid and independent)', async () => {
+    table.assignedWaiter = waiterA._id;
+    await table.save();
+
+    const createRes = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', 'unpaid-complete-key')
+      .send({
+        orderSessionId: session._id,
+        location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
+        items: [{ menuItemId: mockMenuItemId, quantity: 1 }]
+      });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data.order.id;
+
+    // Verify order starts as unpaid
+    expect(createRes.body.data.order.payment.status).toBe('unpaid');
+
+    // 1. Waiter A advances placed -> served
+    await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterAToken}`)
+      .send({ expectedStep: 'placed' });
+
+    // 2. Waiter A completes order served -> completed while still unpaid
+    const completeRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterAToken}`)
+      .send({ expectedStep: 'served' });
+
+    expect(completeRes.status).toBe(200);
+    const completedOrder = completeRes.body.data.order;
+    expect(completedOrder.currentStepKey).toBe('completed');
+    expect(completedOrder.systemState).toBe('COMPLETED');
+    // Crucial: payment status MUST remain unpaid
+    expect(completedOrder.payment.status).toBe('unpaid');
+
+    const dbOrder = await Order.findById(orderId);
+    expect(dbOrder.systemState).toBe('COMPLETED');
+    expect(dbOrder.payment.status).toBe('unpaid');
+  });
+
+  test('Paying does not automatically advance operational workflow state', async () => {
+    table.assignedWaiter = waiterA._id;
+    await table.save();
+
+    const createRes = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', 'payment-mutation-key')
+      .send({
+        orderSessionId: session._id,
+        location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
+        items: [{ menuItemId: mockMenuItemId, quantity: 1 }]
+      });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data.order.id;
+
+    // Mutate payment to paid
+    const order = await Order.findById(orderId);
+    order.payment.status = 'paid';
+    order.payment.paidAt = new Date();
+    await order.save();
+
+    // Verify operational workflow state remains placed / OPEN
+    const updatedDbOrder = await Order.findById(orderId);
+    expect(updatedDbOrder.payment.status).toBe('paid');
+    expect(updatedDbOrder.currentStepKey).toBe('placed');
+    expect(updatedDbOrder.systemState).toBe('OPEN');
   });
 });

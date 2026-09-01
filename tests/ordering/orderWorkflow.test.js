@@ -46,10 +46,9 @@ describe('Order Workflow Transition and Isolation Tests', () => {
       orderingLocation: { type: 'Point', coordinates: [38.7500, 9.0200] },
       orderingRadiusMeters: 100,
       orderWorkflow: [
-        { key: 'placed', label: 'Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['chef'] },
-        { key: 'preparing', label: 'Cooking', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['chef'] },
-        { key: 'ready', label: 'Ready', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 3, actionRoles: ['waiter'] },
-        { key: 'completed', label: 'Done', systemState: 'COMPLETED', enabled: true, required: true, order: 4, actionRoles: ['cashier'] }
+        { key: 'placed', label: 'Order Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'served', label: 'Served', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'completed', label: 'Completed', systemState: 'COMPLETED', enabled: true, required: true, order: 3, actionRoles: [], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: null }
       ]
     });
 
@@ -94,7 +93,7 @@ describe('Order Workflow Transition and Isolation Tests', () => {
     });
     chefToken = jwt.sign({ id: chefEmployee._id, role: 'employee' }, process.env.JWT_SECRET);
 
-    // Create Waiter
+    // Create Waiter A (Assigned to table)
     waiterEmployee = await Employee.create({
       name: 'Waiter Mario',
       password: 'password123',
@@ -123,9 +122,9 @@ describe('Order Workflow Transition and Isolation Tests', () => {
     expect(createRes.status).toBe(201);
     const orderId = createRes.body.data.order.id;
 
-    // 2. Change Restaurant workflow (disable preparing step and increment version to 2)
+    // 2. Change Restaurant workflow (disable served step and increment version to 2)
     restaurant.orderWorkflowVersion = 2;
-    restaurant.orderWorkflow[1].enabled = false; // Disable preparing
+    restaurant.orderWorkflow[1].enabled = false; // Disable served
     await restaurant.save();
 
     // 3. Retrieve the order and verify the workflow configuration snapshot is STILL version 1
@@ -134,7 +133,7 @@ describe('Order Workflow Transition and Isolation Tests', () => {
     expect(order.workflow.steps[1].enabled).toBe(true); // Still enabled in snapshot
   });
 
-  test('Chef successfully advances order from placed to preparing', async () => {
+  test('Assigned Waiter advances placed -> served -> completed with timestamp and timeline integrity', async () => {
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -147,26 +146,56 @@ describe('Order Workflow Transition and Isolation Tests', () => {
 
     const orderId = createRes.body.data.order.id;
 
-    // Advance to next step (placed -> preparing)
-    const advanceRes = await request(app)
+    // Verify initial state is placed / OPEN
+    expect(createRes.body.data.order.currentStepKey).toBe('placed');
+    expect(createRes.body.data.order.systemState).toBe('OPEN');
+    expect(createRes.body.data.order.timeline.length).toBe(1);
+    expect(createRes.body.data.order.timeline[0].action).toBe('order_created');
+
+    // 1. Advance placed -> served
+    const serveRes = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${chefToken}`)
+      .set('Authorization', `Bearer ${waiterToken}`)
       .send({ expectedStep: 'placed' });
 
-    expect(advanceRes.status).toBe(200);
-    expect(advanceRes.body.data.order.currentStepKey).toBe('preparing');
-    expect(advanceRes.body.data.order.systemState).toBe('IN_PROGRESS');
+    expect(serveRes.status).toBe(200);
+    expect(serveRes.body.data.order.currentStepKey).toBe('served');
+    expect(serveRes.body.data.order.systemState).toBe('IN_PROGRESS');
+    expect(serveRes.body.data.order.service.servedAt).not.toBeNull();
+    const servedAtTimestamp = serveRes.body.data.order.service.servedAt;
 
-    // Verify timeline entry was added
-    expect(advanceRes.body.data.order.timeline.length).toBe(2);
-    expect(advanceRes.body.data.order.timeline[1].action).toBe('workflow_advanced');
+    // Verify timeline entry for served
+    expect(serveRes.body.data.order.timeline.length).toBe(2);
+    expect(serveRes.body.data.order.timeline[1].stepKey).toBe('served');
+    expect(serveRes.body.data.order.timeline[1].action).toBe('order_served');
+
+    // 2. Advance served -> completed
+    const completeRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterToken}`)
+      .send({ expectedStep: 'served' });
+
+    expect(completeRes.status).toBe(200);
+    expect(completeRes.body.data.order.currentStepKey).toBe('completed');
+    expect(completeRes.body.data.order.systemState).toBe('COMPLETED');
+    // Verify servedAt timestamp was not overwritten
+    expect(completeRes.body.data.order.service.servedAt).toBe(servedAtTimestamp);
+
+    // Verify timeline entries are in chronological order
+    expect(completeRes.body.data.order.timeline.length).toBe(3);
+    expect(completeRes.body.data.order.timeline[0].stepKey).toBe('placed');
+    expect(completeRes.body.data.order.timeline[0].action).toBe('order_created');
+    expect(completeRes.body.data.order.timeline[1].stepKey).toBe('served');
+    expect(completeRes.body.data.order.timeline[1].action).toBe('order_served');
+    expect(completeRes.body.data.order.timeline[2].stepKey).toBe('completed');
+    expect(completeRes.body.data.order.timeline[2].action).toBe('order_completed');
   });
 
-  test('Reject transition if employee role lacks actionRoles capability in current step', async () => {
+  test('Chef is blocked from advancing placed or served orders (403 Forbidden)', async () => {
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
-      .set('Idempotency-Key', 'reject-transition-key')
+      .set('Idempotency-Key', 'chef-block-test-key')
       .send({
         orderSessionId: session._id,
         location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
@@ -175,17 +204,17 @@ describe('Order Workflow Transition and Isolation Tests', () => {
 
     const orderId = createRes.body.data.order.id;
 
-    // Waiter tries to advance from placed (only chef is allowed: actionRoles = ['chef'])
-    const advanceRes = await request(app)
+    // Chef tries to advance placed -> served
+    const chefAdvanceRes = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${waiterToken}`)
+      .set('Authorization', `Bearer ${chefToken}`)
       .send({ expectedStep: 'placed' });
 
-    expect(advanceRes.status).toBe(403);
-    expect(advanceRes.body.error).toBe('ORDER_WORKFLOW_PERMISSION_DENIED');
+    expect(chefAdvanceRes.status).toBe(403);
+    expect(chefAdvanceRes.body.error).toBe('ORDER_WORKFLOW_PERMISSION_DENIED');
   });
 
-  test('Advance concurrency: expect 409 conflict if state was already changed', async () => {
+  test('Advance concurrency: expect 409 conflict if expectedStep does not match current state', async () => {
     const createRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -198,20 +227,56 @@ describe('Order Workflow Transition and Isolation Tests', () => {
 
     const orderId = createRes.body.data.order.id;
 
-    // Chef 1 advances successfully
-    const chef1 = await request(app)
+    // 1. Waiter advances from placed -> served
+    const firstAdvance = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${chefToken}`)
+      .set('Authorization', `Bearer ${waiterToken}`)
       .send({ expectedStep: 'placed' });
 
-    // Chef 2 concurrently tries to advance from 'placed' as well (expectedStep: 'placed')
-    const chef2 = await request(app)
+    expect(firstAdvance.status).toBe(200);
+
+    // 2. Client sends stale expectedStep: 'placed' when order is now 'served'
+    const staleAdvance = await request(app)
       .post(`/api/employee/orders/${orderId}/advance`)
-      .set('Authorization', `Bearer ${chefToken}`)
+      .set('Authorization', `Bearer ${waiterToken}`)
       .send({ expectedStep: 'placed' });
 
-    expect(chef1.status).toBe(200);
-    expect(chef2.status).toBe(409); // Conflict!
-    expect(chef2.body.error).toBe('ORDER_STATE_CHANGED');
+    expect(staleAdvance.status).toBe(409); // Conflict!
+    expect(staleAdvance.body.error).toBe('ORDER_STATE_CHANGED');
+  });
+
+  test('Terminal completed state cannot be advanced', async () => {
+    const createRes = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', 'terminal-advance-key')
+      .send({
+        orderSessionId: session._id,
+        location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
+        items: [{ menuItemId: mockMenuItemId, quantity: 1 }]
+      });
+
+    const orderId = createRes.body.data.order.id;
+
+    // Advance placed -> served
+    await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterToken}`)
+      .send({ expectedStep: 'placed' });
+
+    // Advance served -> completed
+    await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterToken}`)
+      .send({ expectedStep: 'served' });
+
+    // Attempt to advance terminal completed order
+    const terminalRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterToken}`)
+      .send({ expectedStep: 'completed' });
+
+    expect(terminalRes.status).toBe(403);
+    expect(terminalRes.body.error).toBe('ORDER_NO_NEXT_WORKFLOW_STEP');
   });
 });

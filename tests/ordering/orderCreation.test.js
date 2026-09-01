@@ -46,9 +46,9 @@ describe('Order Creation Integration Checks', () => {
       orderingLocation: { type: 'Point', coordinates: [38.7500, 9.0200] },
       orderingRadiusMeters: 100,
       orderWorkflow: [
-        { key: 'placed', label: 'Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['chef'] },
-        { key: 'preparing', label: 'Cooking', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['chef'] },
-        { key: 'completed', label: 'Done', systemState: 'COMPLETED', enabled: true, required: true, order: 3, actionRoles: ['cashier'] }
+        { key: 'placed', label: 'Order Placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'served', label: 'Served', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+        { key: 'completed', label: 'Completed', systemState: 'COMPLETED', enabled: true, required: true, order: 3, actionRoles: [], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: null }
       ]
     });
 
@@ -97,7 +97,7 @@ describe('Order Creation Integration Checks', () => {
     await table.save();
   });
 
-  test('Create order successfully with correct pricing and snapshot', async () => {
+  test('Create order successfully with correct pricing, snapshot, and initial PLACED state without auto-advance', async () => {
     const res = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -114,6 +114,15 @@ describe('Order Creation Integration Checks', () => {
     expect(res.body.data.order.orderNumber).toMatch(/ORD-\d+/);
     expect(res.body.data.order.pricing.total).toBe(500); // 250 * 2
 
+    // Initial step and state
+    expect(res.body.data.order.currentStepKey).toBe('placed');
+    expect(res.body.data.order.systemState).toBe('OPEN');
+
+    // Initial timeline must contain only 1 entry: placed / order_created
+    expect(res.body.data.order.timeline.length).toBe(1);
+    expect(res.body.data.order.timeline[0].stepKey).toBe('placed');
+    expect(res.body.data.order.timeline[0].action).toBe('order_created');
+
     // Verify coordinates are excluded from serializations (Privacy Guard)
     expect(res.body.data.order.customerExactLocation).toBeUndefined();
 
@@ -122,6 +131,8 @@ describe('Order Creation Integration Checks', () => {
     expect(savedOrder.workflow.version).toBe(1);
     expect(savedOrder.workflow.steps.length).toBe(3);
     expect(savedOrder.currentStepKey).toBe('placed');
+    expect(savedOrder.systemState).toBe('OPEN');
+    expect(savedOrder.timeline.length).toBe(1);
   });
 
   test('Idempotent submissions return cached order without duplicates', async () => {

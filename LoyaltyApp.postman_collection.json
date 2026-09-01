@@ -662,7 +662,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order Received\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Start Preparing\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Mark Ready\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"ready\",\n            \"label\": \"Ready for Pickup\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Mark Served\",\n            \"order\": 3,\n            \"enabled\": false,\n            \"required\": false\n        },\n        {\n            \"key\": \"serving\",\n            \"label\": \"Serving Table\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 4,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Order Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 5,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"Order Placed\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Mark Served\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"served\",\n            \"label\": \"Served\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Completed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 3,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
@@ -1393,7 +1393,7 @@
 					"response": []
 				},
 				{
-					"name": "Workflow Customization Check (Disable Ready)",
+					"name": "Workflow Customization Check (Disable Served)",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -1408,7 +1408,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order Received\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Start Preparing\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"chef\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"chef\"],\n            \"actionLabel\": \"Serve directly\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"ready\",\n            \"label\": \"Ready for Pickup\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Take Order\",\n            \"order\": 3,\n            \"enabled\": false,\n            \"required\": false\n        },\n        {\n            \"key\": \"serving\",\n            \"label\": \"Serving Table\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 4,\n            \"enabled\": true,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Order Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 5,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"placed\",\n            \"label\": \"Order Placed\",\n            \"systemState\": \"OPEN\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Mark Served\",\n            \"order\": 1,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"served\",\n            \"label\": \"Served\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"responsibleRole\": \"waiter\",\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [\"waiter\"],\n            \"actionLabel\": \"Complete Order\",\n            \"order\": 2,\n            \"enabled\": false,\n            \"required\": false\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Completed\",\n            \"systemState\": \"COMPLETED\",\n            \"responsibleRole\": null,\n            \"visibleToRoles\": [\"chef\", \"waiter\", \"cashier\"],\n            \"actionRoles\": [],\n            \"actionLabel\": null,\n            \"order\": 3,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
@@ -1422,7 +1422,7 @@
 								"workflow"
 							]
 						},
-						"description": "Owner disables the ready step. Should succeed with 200 OK and increment orderWorkflowVersion."
+						"description": "Owner disables the served step. Should succeed with 200 OK and increment orderWorkflowVersion."
 					},
 					"response": []
 				},
@@ -1442,7 +1442,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"preparing\",\n            \"label\": \"Cooking\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"order\": 1,\n            \"enabled\": true\n        },\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order\",\n            \"systemState\": \"OPEN\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"order\": 3,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
+							"raw": "{\n    \"orderWorkflow\": [\n        {\n            \"key\": \"served\",\n            \"label\": \"Served\",\n            \"systemState\": \"IN_PROGRESS\",\n            \"order\": 1,\n            \"enabled\": true\n        },\n        {\n            \"key\": \"placed\",\n            \"label\": \"New Order\",\n            \"systemState\": \"OPEN\",\n            \"order\": 2,\n            \"enabled\": true,\n            \"required\": true\n        },\n        {\n            \"key\": \"completed\",\n            \"label\": \"Closed\",\n            \"systemState\": \"COMPLETED\",\n            \"order\": 3,\n            \"enabled\": true,\n            \"required\": true\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/workflow",
@@ -2341,7 +2341,7 @@
 					"response": []
 				},
 				{
-					"name": "Advance Order Step",
+					"name": "Advance Order Step (Mark Served)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -2371,7 +2371,42 @@
 								"advance"
 							]
 						},
-						"description": "Advance the order to the next enabled step in workflow. Enforces concurrency protection."
+						"description": "Assigned waiter advances the order from PLACED to SERVED. Automatically records service.servedAt server timestamp and transitions systemState to IN_PROGRESS."
+					},
+					"response": []
+				},
+				{
+					"name": "Advance Order Step (Complete Order)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"expectedStep\": \"served\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/advance",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"advance"
+							]
+						},
+						"description": "Assigned waiter advances the order from SERVED to COMPLETED. Operational completion is independent of payment status."
 					},
 					"response": []
 				},
@@ -2448,6 +2483,10 @@
 		},
 		{
 			"key": "tableId",
+			"value": ""
+		},
+		{
+			"key": "waiterId",
 			"value": ""
 		},
 		{

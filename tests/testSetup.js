@@ -9,6 +9,12 @@ beforeAll(async () => {
     const testDbUri = `mongodb+srv://${dbUser}:${dbPassword}@loyaltyapp.uno2z8g.mongodb.net/loyaltyAppTest?appName=loyaltyApp`;
     await mongoose.connect(testDbUri);
   }
+  if (mongoose.connection.readyState !== 0) {
+    const collections = mongoose.connection.collections;
+    for (const key in collections) {
+      await collections[key].deleteMany({});
+    }
+  }
 }, 30000); // 30s timeout for initial Atlas connection
 
 afterEach(async () => {

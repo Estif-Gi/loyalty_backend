@@ -8,18 +8,8 @@ const WORKFLOW_DEFINITIONS = {
     systemState: "OPEN",
     required: true
   },
-  preparing: {
-    key: "preparing",
-    systemState: "IN_PROGRESS",
-    required: false
-  },
-  ready: {
-    key: "ready",
-    systemState: "IN_PROGRESS",
-    required: false
-  },
-  serving: {
-    key: "serving",
+  served: {
+    key: "served",
     systemState: "IN_PROGRESS",
     required: false
   },
@@ -267,15 +257,8 @@ const validateWorkflow = (workflow) => {
  * @returns {string|null} The required permission string
  */
 function getRequiredPermissionForTransition(currentKey, nextKey) {
-  if (nextKey === 'preparing') return 'orders:prepare';
-  if (nextKey === 'ready') return 'orders:ready';
-  if (nextKey === 'serving') return 'orders:serve';
-  if (nextKey === 'completed') {
-    if (currentKey === 'ready' || currentKey === 'serving') {
-      return 'orders:serve';
-    }
-    return 'orders:payment';
-  }
+  if (nextKey === 'served') return 'orders:serve';
+  if (nextKey === 'completed') return 'orders:serve';
   return null;
 }
 

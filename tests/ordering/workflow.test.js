@@ -5,39 +5,35 @@ describe('Workflow Validation Invariants', () => {
 
   beforeEach(() => {
     baseWorkflow = [
-      { key: 'placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['chef'] },
-      { key: 'preparing', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['chef'] },
-      { key: 'ready', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 3, actionRoles: ['waiter'] },
-      { key: 'serving', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 4, actionRoles: ['waiter'] },
-      { key: 'completed', systemState: 'COMPLETED', enabled: true, required: true, order: 5, actionRoles: ['cashier'] }
+      { key: 'placed', systemState: 'OPEN', enabled: true, required: true, order: 1, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+      { key: 'served', systemState: 'IN_PROGRESS', enabled: true, required: false, order: 2, actionRoles: ['waiter'], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: 'waiter' },
+      { key: 'completed', systemState: 'COMPLETED', enabled: true, required: true, order: 3, actionRoles: [], visibleToRoles: ['chef', 'waiter', 'cashier'], responsibleRole: null }
     ];
   });
 
-  test('Valid workflow passes validation', () => {
+  test('Valid canonical 3-step workflow passes validation', () => {
     const res = validateWorkflow(baseWorkflow);
     expect(res.isValid).toBe(true);
   });
 
   test('Reject workflow if placed is not the first enabled step', () => {
-    // Set orders so preparing (1) is before placed (2) with no duplicates
     baseWorkflow[0].order = 2; // placed
-    baseWorkflow[1].order = 1; // preparing
+    baseWorkflow[1].order = 1; // served
     
     const res = validateWorkflow(baseWorkflow);
     expect(res.isValid).toBe(false);
     expect(res.error).toBe('INVALID_ORDER_WORKFLOW_BOUNDARY');
-    expect(res.details.firstEnabledStep).toBe('preparing');
+    expect(res.details.firstEnabledStep).toBe('served');
   });
 
   test('Reject workflow if completed is not the last enabled step', () => {
-    // Set orders so completed (4) is before serving (5) with no duplicates
-    baseWorkflow[4].order = 4; // completed
-    baseWorkflow[3].order = 5; // serving
+    baseWorkflow[2].order = 2; // completed
+    baseWorkflow[1].order = 3; // served
 
     const res = validateWorkflow(baseWorkflow);
     expect(res.isValid).toBe(false);
     expect(res.error).toBe('INVALID_ORDER_WORKFLOW_BOUNDARY');
-    expect(res.details.lastEnabledStep).toBe('serving');
+    expect(res.details.lastEnabledStep).toBe('served');
   });
 
   test('Reject non-integer step.order values', () => {
@@ -86,17 +82,23 @@ describe('Workflow Validation Invariants', () => {
     expect(res.error).toBe('INVALID_ORDER_WORKFLOW');
 
     baseWorkflow[0].enabled = true;
-    baseWorkflow[4].enabled = false;
+    baseWorkflow[2].enabled = false;
     res = validateWorkflow(baseWorkflow);
     expect(res.isValid).toBe(false);
     expect(res.error).toBe('INVALID_ORDER_WORKFLOW');
   });
 
-  test('Reject unknown key', () => {
-    baseWorkflow.push({ key: 'unknown', systemState: 'IN_PROGRESS', enabled: true, order: 6 });
-    const res = validateWorkflow(baseWorkflow);
-    expect(res.isValid).toBe(false);
-    expect(res.error).toBe('INVALID_ORDER_WORKFLOW');
+  test('Reject obsolete / unknown keys (preparing, ready, serving, unknown)', () => {
+    const obsoleteKeys = ['preparing', 'ready', 'serving', 'unknown'];
+    for (const key of obsoleteKeys) {
+      const customFlow = [
+        ...baseWorkflow,
+        { key, systemState: 'IN_PROGRESS', enabled: true, order: 4 }
+      ];
+      const res = validateWorkflow(customFlow);
+      expect(res.isValid).toBe(false);
+      expect(res.error).toBe('INVALID_ORDER_WORKFLOW');
+    }
   });
 });
 
@@ -104,86 +106,111 @@ describe('Workflow Step Traversal with Skips', () => {
   let workflow;
 
   beforeEach(() => {
-    // ready is disabled
     workflow = [
       { key: 'placed', enabled: true, order: 1 },
-      { key: 'preparing', enabled: true, order: 2 },
-      { key: 'ready', enabled: false, order: 3 },
-      { key: 'serving', enabled: true, order: 4 },
-      { key: 'completed', enabled: true, order: 5 }
+      { key: 'served', enabled: false, order: 2 },
+      { key: 'completed', enabled: true, order: 3 }
     ];
   });
 
-  test('getNextWorkflowStep skips ready if disabled', () => {
-    const nextStep = getNextWorkflowStep(workflow, 'preparing');
+  test('getNextWorkflowStep skips served if disabled', () => {
+    const nextStep = getNextWorkflowStep(workflow, 'placed');
     expect(nextStep).not.toBeNull();
-    expect(nextStep.key).toBe('serving');
+    expect(nextStep.key).toBe('completed');
   });
 
-  test('getPreviousWorkflowStep skips ready if disabled', () => {
-    const prevStep = getPreviousWorkflowStep(workflow, 'serving');
+  test('getPreviousWorkflowStep skips served if disabled', () => {
+    const prevStep = getPreviousWorkflowStep(workflow, 'completed');
     expect(prevStep).not.toBeNull();
-    expect(prevStep.key).toBe('preparing');
+    expect(prevStep.key).toBe('placed');
+  });
+
+  test('Standard traversal placed -> served -> completed', () => {
+    const activeWorkflow = [
+      { key: 'placed', enabled: true, order: 1 },
+      { key: 'served', enabled: true, order: 2 },
+      { key: 'completed', enabled: true, order: 3 }
+    ];
+
+    const step1 = getNextWorkflowStep(activeWorkflow, 'placed');
+    expect(step1.key).toBe('served');
+
+    const step2 = getNextWorkflowStep(activeWorkflow, 'served');
+    expect(step2.key).toBe('completed');
+
+    const step3 = getNextWorkflowStep(activeWorkflow, 'completed');
+    expect(step3).toBeNull();
   });
 });
 
 describe('Workflow Permission Handover Semantics', () => {
   const chefPermissions = ['orders:view', 'orders:prepare', 'orders:ready'];
-  const waiterPermissions = ['orders:view', 'orders:claim', 'orders:serve'];
+  const waiterPermissions = ['orders:view', 'orders:serve', 'orders:payment'];
   const cashierPermissions = ['orders:view', 'orders:payment'];
 
-  test('Chef listed in actionRoles & has capability -> allowed', () => {
-    const step = { key: 'placed', actionRoles: ['chef'] };
+  test('Waiter listed in actionRoles & has orders:serve -> allowed for placed -> served', () => {
+    const step = { key: 'placed', actionRoles: ['waiter'] };
     const allowed = canRoleAdvanceWorkflowStep({
-      employeeRole: 'chef',
-      employeePermissions: chefPermissions,
+      employeeRole: 'waiter',
+      employeePermissions: waiterPermissions,
       workflowStep: step,
-      nextStepKey: 'preparing'
+      nextStepKey: 'served'
     });
     expect(allowed).toBe(true);
   });
 
-  test('Chef listed in actionRoles but lacks capability -> denied', () => {
-    const step = { key: 'serving', actionRoles: ['chef'] };
+  test('Waiter listed in actionRoles & has orders:serve -> allowed for served -> completed', () => {
+    const step = { key: 'served', actionRoles: ['waiter'] };
+    const allowed = canRoleAdvanceWorkflowStep({
+      employeeRole: 'waiter',
+      employeePermissions: waiterPermissions,
+      workflowStep: step,
+      nextStepKey: 'completed'
+    });
+    expect(allowed).toBe(true);
+  });
+
+  test('Chef attempted advance placed -> served is denied (Chef not in actionRoles & lacks orders:serve)', () => {
+    const step = { key: 'placed', actionRoles: ['waiter'] };
+    const allowed = canRoleAdvanceWorkflowStep({
+      employeeRole: 'chef',
+      employeePermissions: chefPermissions,
+      workflowStep: step,
+      nextStepKey: 'served'
+    });
+    expect(allowed).toBe(false);
+  });
+
+  test('Chef attempted advance served -> completed is denied', () => {
+    const step = { key: 'served', actionRoles: ['waiter'] };
     const allowed = canRoleAdvanceWorkflowStep({
       employeeRole: 'chef',
       employeePermissions: chefPermissions,
       workflowStep: step,
       nextStepKey: 'completed'
     });
-    expect(allowed).toBe(false); // Chef lacks "orders:payment"
+    expect(allowed).toBe(false);
   });
 
-  test('Chef has capability but not listed in actionRoles -> denied', () => {
+  test('Waiter lacking orders:serve capability is denied', () => {
     const step = { key: 'placed', actionRoles: ['waiter'] };
     const allowed = canRoleAdvanceWorkflowStep({
-      employeeRole: 'chef',
-      employeePermissions: chefPermissions,
+      employeeRole: 'waiter',
+      employeePermissions: ['orders:view'], // lacks 'orders:serve'
       workflowStep: step,
-      nextStepKey: 'preparing'
+      nextStepKey: 'served'
     });
     expect(allowed).toBe(false);
   });
 
-  test('Waiter listed in actionRoles but lacks capability -> denied', () => {
-    const step = { key: 'preparing', actionRoles: ['waiter'] };
+  test('Cashier attempted advance is denied', () => {
+    const step = { key: 'placed', actionRoles: ['waiter'] };
     const allowed = canRoleAdvanceWorkflowStep({
-      employeeRole: 'waiter',
-      employeePermissions: waiterPermissions,
+      employeeRole: 'cashier',
+      employeePermissions: cashierPermissions,
       workflowStep: step,
-      nextStepKey: 'ready' // Transitions to ready -> requires 'orders:ready'
+      nextStepKey: 'served'
     });
-    expect(allowed).toBe(false); // Waiter lacks 'orders:ready'
-  });
-
-  test('Ready disabled: Waiter claims from preparing -> allowed', () => {
-    const step = { key: 'preparing', actionRoles: ['waiter'] };
-    const allowed = canRoleAdvanceWorkflowStep({
-      employeeRole: 'waiter',
-      employeePermissions: waiterPermissions,
-      workflowStep: step,
-      nextStepKey: 'serving' // Direct transition to serving -> requires 'orders:serve'
-    });
-    expect(allowed).toBe(true); // Waiter possesses 'orders:serve'
+    expect(allowed).toBe(false);
   });
 });
