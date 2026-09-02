@@ -2191,7 +2191,7 @@
 							},
 							{
 								"key": "Idempotency-Key",
-								"value": "{{idempotencyKey}}"
+								"value": "{{$guid}}"
 							}
 						],
 						"body": {

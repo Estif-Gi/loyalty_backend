@@ -8,7 +8,8 @@ const ROLE_PERMISSIONS = {
   waiter: [
     "orders:view",
     "orders:serve",
-    "orders:payment"
+    "orders:payment",
+    "loyalty:stamps:add"
   ],
 
   cashier: [

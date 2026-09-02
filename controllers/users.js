@@ -1,6 +1,7 @@
 const User = require('../model/users');
 const Employee = require('../model/employee');
 const Restaurant = require('../model/restaurant');
+const LoyaltyProgram = require('../model/loyalty_program');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getIo } = require('../sockets/ioInstance');
@@ -176,17 +177,21 @@ exports.addStamps = async (req, res) => {
 
         const loyaltyIndex = customer.loyalTo.findIndex(l => l.resID.toString() === restaurantId);
 
+        let activeProgramId = loyaltyProgram;
+        if (!activeProgramId) {
+            const defaultProgram = await LoyaltyProgram.findOne({ restaurant: restaurantId });
+            if (defaultProgram) {
+                activeProgramId = defaultProgram._id;
+            }
+        }
+
         if (loyaltyIndex > -1) {
             customer.loyalTo[loyaltyIndex].stamps += stampsToAdd;
 
-            if (!customer.loyalTo[loyaltyIndex].programID && loyaltyProgram) {
-                customer.loyalTo[loyaltyIndex].programID = loyaltyProgram;
+            if (!customer.loyalTo[loyaltyIndex].programID && activeProgramId) {
+                customer.loyalTo[loyaltyIndex].programID = activeProgramId;
             }
         } else {
-            if (!loyaltyProgram) {
-                return res.status(400).json({ message: 'Loyalty program ID is required for new loyalty records' });
-            }
-
             // Enforce customer profiles limit
             const tier = restaurant.billingStatus || 'free';
             const limits = getLimitsForTier(tier);
@@ -201,7 +206,7 @@ exports.addStamps = async (req, res) => {
             customer.loyalTo.push({
                 resID: restaurant._id,
                 resName: restaurant.name,
-                programID: loyaltyProgram,
+                programID: activeProgramId || null,
                 stamps: stampsToAdd
             });
         }
