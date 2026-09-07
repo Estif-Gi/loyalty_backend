@@ -2,46 +2,60 @@ const { getProfileSocket } = require('../controllers/users');
 const { registerUser, removeUser } = require('./socketManager');
 const Employee = require('../model/employee');
 
+/**
+ * Registers an authenticated socket connection and joins server-derived identity rooms.
+ * 
+ * Room Namespaces:
+ * - customer:<customerId>  — for customer accounts (tab/device synchronization)
+ * - employee:<employeeId>  — for active staff (direct waiter notifications)
+ * - restaurant:<restaurantId> — for active restaurant staff (invalidation signals)
+ * 
+ * Clients are NEVER permitted to arbitrarily join rooms. All room memberships
+ * are strictly derived by the server from verified JWT identity.
+ * 
+ * @param {import('socket.io').Socket} socket 
+ */
 async function registerUserSockets(socket) {
-  const userId = socket.user.id;
-  const userRole = socket.user.role;
+  const userId = socket.user?.id;
+  const userRole = socket.user?.role;
 
-  // Register this user's socket and join a user-specific room
+  if (!userId) {
+    return socket.disconnect(true);
+  }
+
+  // Register socket in tracker
   registerUser(userId, socket.id);
-  socket.join(userId.toString());
-  console.log(`✅ Socket connected: ${socket.id} | user/employee: ${userId} | role: ${userRole}`);
 
-  // Employee-specific room joining
+  // 1. Customer Room Assignment
+  if (userRole === 'customer') {
+    const customerRoom = `customer:${userId.toString()}`;
+    socket.join(customerRoom);
+    console.log(`✅ Customer ${userId} joined room ${customerRoom}`);
+  }
+
+  // 2. Employee Room Assignment
   if (userRole === 'employee') {
     try {
-      const employee = await Employee.findById(userId);
+      let employee = socket.employee;
+      if (!employee) {
+        const empDoc = await Employee.findById(userId);
+        if (empDoc && empDoc.isActive) {
+          employee = {
+            id: empDoc._id.toString(),
+            restaurantId: empDoc.restaurant.toString(),
+            role: empDoc.role,
+            isActive: empDoc.isActive
+          };
+        }
+      }
+
       if (employee && employee.isActive) {
-        const restaurantRoom = `restaurant:${employee.restaurant.toString()}`;
-        const employeeRoom = `employee:${employee._id.toString()}`;
-        
+        const restaurantRoom = `restaurant:${employee.restaurantId}`;
+        const employeeRoom = `employee:${employee.id}`;
+
         socket.join(restaurantRoom);
         socket.join(employeeRoom);
         console.log(`✅ Employee ${userId} joined room ${restaurantRoom} and ${employeeRoom}`);
-        
-        /**
-         * FUTURE ORDER SOCKET EVENTS ROADMAP:
-         * 
-         * 1. Room "restaurant:<restaurantId>":
-         *    - Staff members (chef, waiter, cashier) subscribe to this room.
-         *    - When a customer places a new order, the server emits "order:new" to this room.
-         *    - Any staff member who has the order workflow updates it, emitting "order:status-changed" to this room.
-         * 
-         * 2. Room "employee:<employeeId>":
-         *    - Specific employee receives direct alerts.
-         *    - For example, when a waiter is assigned/claims an order, they receive "order:claimed".
-         *    - Custom notifications or status warnings could be pushed here.
-         * 
-         * Future Events list:
-         *    - "order:new": Dispatched when customer successfully places a physical presence-verified order.
-         *    - "order:status-changed": Emitted when workflow moves (e.g. from PLACED to PREPARING).
-         *    - "order:claimed": Sent when a waiter claims a ready order to serve.
-         *    - "order:completed": Sent when order status transitions to COMPLETED.
-         */
       }
     } catch (err) {
       console.error(`🔥 Error joining employee rooms for socket ${socket.id}:`, err);
@@ -58,7 +72,7 @@ async function registerUserSockets(socket) {
   });
 
   socket.on('disconnect', () => {
-    removeUser(userId, socket.id);   // ← clean up only this socket
+    removeUser(userId, socket.id);
     console.log(`❌ Socket disconnected: ${socket.id}`);
   });
 }

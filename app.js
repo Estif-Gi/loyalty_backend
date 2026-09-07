@@ -9,17 +9,7 @@ const { validateEncryptionConfig } = require('./utils/crypto');
 validateEncryptionConfig();
 const { setIo } = require('./sockets/ioInstance');
 
-const rateLimit = require('express-rate-limit');
-
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 400 // limit each IP to 5 requests per windowMs
-});
-
-
 const app = express();
-
-app.use(limiter);
 const allowedOrigins = [
   "https://loyalty-customer.vercel.app",
   "https://loyal.bahirandelivery.com",
@@ -60,6 +50,10 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: false
+  }
 });
 
 setIo(io);
@@ -103,4 +97,5 @@ if (require.main === module) {
     .catch((err) => console.log("❌ Failed to connect to MongoDB:", err));
 }
 
+app.server = server;
 module.exports = app;

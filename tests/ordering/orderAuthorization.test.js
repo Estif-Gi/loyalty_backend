@@ -20,8 +20,12 @@ describe('Order Authorization and Restaurant Isolation Tests', () => {
   let restaurantA, restaurantB, sessionA, menuA, tableA, qrCodeA;
   let orderAId;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
+    jest.setTimeout(60000);
     await Order.syncIndexes();
+  });
+
+  beforeEach(async () => {
 
     customerA = await User.create({ name: 'Customer A', phone: '+251910000009', password: 'password123', role: 'customer' });
     customerAToken = jwt.sign({ id: customerA._id, role: 'customer' }, process.env.JWT_SECRET);

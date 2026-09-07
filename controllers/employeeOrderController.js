@@ -5,77 +5,8 @@ const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
 
 const Restaurant = require('../model/restaurant');
 
-const { getNextWorkflowStep, canRoleAdvanceWorkflowStep } = require('../utils/workflow');
-
-/**
- * Serializes order document for staff queue (including full operational metadata).
- */
-function serializeOrderForEmployee(order, employee = null) {
-  let currentStep = null;
-  let availableAction = null;
-
-  if (order.workflow && Array.isArray(order.workflow.steps)) {
-    const stepConfig = order.workflow.steps.find((s) => s.key === order.currentStepKey);
-    if (stepConfig) {
-      currentStep = {
-        key: stepConfig.key,
-        label: stepConfig.label,
-        actionLabel: stepConfig.actionLabel
-      };
-
-      if (employee) {
-        const nextStep = getNextWorkflowStep(order.workflow.steps, order.currentStepKey);
-        if (nextStep) {
-          const isRoleAllowed = canRoleAdvanceWorkflowStep({
-            employeeRole: employee.role,
-            employeePermissions: employee.permissions || [],
-            workflowStep: stepConfig,
-            nextStepKey: nextStep.key
-          });
-
-          let isAssignedWaiter = true;
-          if (employee.role === 'waiter' && order.service && order.service.waiter) {
-            const waiterId = order.service.waiter._id 
-              ? order.service.waiter._id.toString() 
-              : order.service.waiter.toString();
-            if (waiterId !== employee.id) {
-              isAssignedWaiter = false;
-            }
-          }
-
-          if (isRoleAllowed && isAssignedWaiter && order.systemState !== SYSTEM_STATES.CANCELLED && order.systemState !== SYSTEM_STATES.COMPLETED) {
-            availableAction = {
-              canAdvance: true,
-              label: stepConfig.actionLabel || (nextStep.key === 'served' ? 'Mark Served' : 'Complete Order')
-            };
-          }
-        }
-      }
-    }
-  }
-
-  return {
-    id: order._id,
-    orderNumber: order.orderNumber,
-    customer: order.customer,
-    table: order.table,
-    items: order.items,
-    pricing: order.pricing,
-    currentStepKey: order.currentStepKey,
-    systemState: order.systemState,
-    currentStep,
-    availableAction,
-    kitchen: order.kitchen,
-    service: order.service,
-    payment: order.payment,
-    timeline: order.timeline,
-    customerNotes: order.customerNotes,
-    cancellation: order.cancellation?.cancelledAt ? order.cancellation : null,
-    workflow: order.workflow, // Expose workflow steps snapshot to employees
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt
-  };
-}
+const { serializeOrderForEmployee } = require('../serializers/orderSerializer');
+const { emitOrderUpdated, emitOrderCancelled } = require('../services/orderRealtimeService');
 
 exports.getEmployeeOrders = async (req, res) => {
   try {
@@ -240,6 +171,8 @@ exports.advanceOrder = async (req, res) => {
       });
     }
 
+    const previousStepKey = order.currentStepKey;
+
     // Resolve updates & responsibility tracking (Section 38)
     const updateSet = {
       currentStepKey: nextStep.key,
@@ -288,6 +221,9 @@ exports.advanceOrder = async (req, res) => {
         message: 'This order was already updated by another employee. Please refresh.'
       });
     }
+
+    // Emit realtime update after committed MongoDB write
+    emitOrderUpdated(updatedOrder, { previousStepKey });
 
     res.json({
       success: true,
@@ -362,6 +298,8 @@ exports.cancelOrder = async (req, res) => {
     });
 
     await order.save();
+
+    emitOrderCancelled(order, { reason: order.cancellation?.reason });
 
     res.json({
       success: true,

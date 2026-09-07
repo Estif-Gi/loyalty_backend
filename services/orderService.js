@@ -52,7 +52,10 @@ async function createOrder({
   // 1. Check Idempotency first (Section 25)
   const existingOrder = await Order.findOne({ idempotencyKey });
   if (existingOrder) {
-    return existingOrder;
+    return {
+      order: existingOrder,
+      created: false
+    };
   }
 
   // 2. Validate OrderSession (Section 6)
@@ -187,7 +190,11 @@ async function createOrder({
   while (attempts < 5) {
     try {
       order.orderNumber = await getNextOrderNumber(restaurant._id);
-      return await order.save();
+      const savedOrder = await order.save();
+      return {
+        order: savedOrder,
+        created: true
+      };
     } catch (error) {
       if (error.code === 11000) {
         if (error.message.includes('orderNumber')) {
@@ -195,7 +202,10 @@ async function createOrder({
         } else if (error.message.includes('idempotencyKey')) {
           const existing = await Order.findOne({ idempotencyKey });
           if (existing) {
-            return existing;
+            return {
+              order: existing,
+              created: false
+            };
           }
           throw error;
         } else {
