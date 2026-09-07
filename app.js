@@ -13,18 +13,30 @@ const app = express();
 const allowedOrigins = [
   "https://loyalty-customer.vercel.app",
   "https://loyal.bahirandelivery.com",
+  "https://loyal.employee.bahirandelivery.com",
   "https://loyal-employee.vercel.app",
   "http://localhost:8081",
   "http://localhost:8080",
   "http://localhost:5173",
   "http://localhost:4173",
-  "https://getloyal.bahirandelivery.com"
+  "https://getloyal.bahirandelivery.com",
+  "https://loyal.employee.bahirandelivery.com/"
 ];
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow any bahirandelivery.com subdomain or nested subdomain
+  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*bahirandelivery\.com(:\d+)?$/.test(origin)) return true;
+  // Allow Vercel preview/production deployments
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
 
 // 1. CORS — must be first
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    if (isOriginAllowed(origin)) callback(null, true);
     else callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
@@ -46,7 +58,9 @@ const server = http.createServer(app);
 // 5. Socket.IO — now server exists
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      callback(null, isOriginAllowed(origin));
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
