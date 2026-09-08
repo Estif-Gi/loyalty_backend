@@ -19,18 +19,41 @@ function formatTable(table) {
 }
 
 /**
+ * Safely formats restaurant reference for DTOs.
+ */
+function formatRestaurant(restaurant) {
+  if (!restaurant) return null;
+  if (typeof restaurant === 'object') {
+    if (restaurant.name !== undefined || restaurant.location !== undefined) {
+      const restaurantId = restaurant._id || restaurant.id;
+      return {
+        id: restaurantId ? restaurantId.toString() : undefined,
+        _id: restaurantId,
+        name: restaurant.name,
+        location: restaurant.location,
+        logoURL: restaurant.logoURL,
+        phone: restaurant.phone
+      };
+    }
+    return restaurant._id || restaurant;
+  }
+  return restaurant;
+}
+
+/**
  * Serializes an order document safely for customer responses (protecting privacy).
  * 
  * @param {object} order - Mongoose order document
  * @returns {object} Projected customer order object
  */
-function serializeOrderForCustomer(order) {
+function serializeOrderForCustomer(order, options = {}) {
   if (!order) return null;
+  const { includeTimeline = true } = options;
 
-  return {
+  const result = {
     id: order._id || order.id,
     orderNumber: order.orderNumber,
-    restaurant: order.restaurant?._id || order.restaurant,
+    restaurant: formatRestaurant(order.restaurant),
     table: formatTable(order.table),
     items: (order.items || []).map((item) => ({
       menuItemId: item.menuItemId,
@@ -51,14 +74,6 @@ function serializeOrderForCustomer(order) {
     currentStepKey: order.currentStepKey,
     systemState: order.systemState,
     customerNotes: order.customerNotes || '',
-    timeline: (order.timeline || []).map((entry) => ({
-      stepKey: entry.stepKey,
-      systemState: entry.systemState,
-      actorType: entry.actorType,
-      action: entry.action,
-      note: entry.note || '',
-      createdAt: entry.createdAt
-    })),
     service: {
       waiter: order.service?.waiter?._id || order.service?.waiter || null,
       claimedAt: order.service?.claimedAt || null,
@@ -80,6 +95,19 @@ function serializeOrderForCustomer(order) {
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   };
+
+  if (includeTimeline && Array.isArray(order.timeline) && order.timeline.length > 0) {
+    result.timeline = order.timeline.map((entry) => ({
+      stepKey: entry.stepKey,
+      systemState: entry.systemState,
+      actorType: entry.actorType,
+      action: entry.action,
+      note: entry.note || '',
+      createdAt: entry.createdAt
+    }));
+  }
+
+  return result;
 }
 
 /**

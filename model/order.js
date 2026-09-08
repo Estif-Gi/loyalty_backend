@@ -278,6 +278,7 @@ orderSchema.index({ restaurant: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ idempotencyKey: 1 }, { unique: true });
 orderSchema.index({ restaurant: 1, systemState: 1, createdAt: 1 });
 orderSchema.index({ customer: 1, createdAt: -1 });
+orderSchema.index({ customer: 1, systemState: 1, createdAt: -1 });
 orderSchema.index({ 'service.waiter': 1, systemState: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

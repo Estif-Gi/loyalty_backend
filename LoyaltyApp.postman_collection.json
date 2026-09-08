@@ -2244,6 +2244,45 @@
 					"response": []
 				},
 				{
+					"name": "Get Customer Order History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/history?page=1&limit=10&status=history",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"history"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "history"
+								}
+							]
+						},
+						"description": "Customer gets their paginated order history (completed & cancelled orders) with populated restaurant details."
+					},
+					"response": []
+				},
+				{
 					"name": "Get Customer Order Details",
 					"request": {
 						"method": "GET",

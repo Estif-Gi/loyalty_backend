@@ -18,6 +18,12 @@ router.get(
 );
 
 router.get(
+  '/history',
+  verifyToken,
+  orderController.getOrderHistory
+);
+
+router.get(
   '/:orderId',
   verifyToken,
   orderController.getCustomerOrder
