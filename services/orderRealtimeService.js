@@ -67,11 +67,17 @@ function emitOrderCreated(order) {
       io.to(`customer:${customerId}`).emit('order:created', customerPayload);
     }
 
-    // 3. Restaurant staff receives a lightweight invalidation signal (no full order data)
+    // 3. Restaurant staff receives direct order data & backward-compatible invalidation signal
     if (restaurantId) {
+      const restaurantOrderPayload = createEventEnvelope('order:created', {
+        order: serializeOrderForEmployee(order)
+      });
+      io.to(`restaurant:${restaurantId}`).emit('order:created', restaurantOrderPayload);
+
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
-        reason: 'created'
+        reason: 'created',
+        order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
     }
@@ -89,7 +95,7 @@ function emitOrderCreated(order) {
  * 
  * 1. Emits 'order:updated' to customer room: customer:<customerId>
  * 2. Emits 'order:updated' to assigned waiter room: employee:<waiterId>
- * 3. Emits 'orders:invalidate' to restaurant room: restaurant:<restaurantId>
+ * 3. Emits 'orders:invalidate' and 'order:updated' to restaurant room: restaurant:<restaurantId>
  * 
  * @param {object} order - Updated mongoose order document
  * @param {object} [metadata]
@@ -105,7 +111,7 @@ function emitOrderUpdated(order, metadata = {}) {
     const waiterId = toIdString(order.service?.waiter);
     const restaurantId = toIdString(order.restaurant);
 
-    const updateData = {
+    const baseUpdateData = {
       orderId,
       orderNumber: order.orderNumber,
       previousStepKey: metadata.previousStepKey || null,
@@ -114,23 +120,33 @@ function emitOrderUpdated(order, metadata = {}) {
       updatedAt: (order.updatedAt || new Date()).toISOString()
     };
 
-    const updateEnvelope = createEventEnvelope('order:updated', updateData);
-
-    // 1. Notify Customer
+    // 1. Notify Customer with customer DTO
     if (customerId) {
-      io.to(`customer:${customerId}`).emit('order:updated', updateEnvelope);
+      const customerPayload = createEventEnvelope('order:updated', {
+        ...baseUpdateData,
+        order: serializeOrderForCustomer(order)
+      });
+      io.to(`customer:${customerId}`).emit('order:updated', customerPayload);
     }
 
-    // 2. Notify Assigned Waiter
+    // 2. Employee payload with employee DTO
+    const employeePayload = createEventEnvelope('order:updated', {
+      ...baseUpdateData,
+      order: serializeOrderForEmployee(order)
+    });
+
     if (waiterId) {
-      io.to(`employee:${waiterId}`).emit('order:updated', updateEnvelope);
+      io.to(`employee:${waiterId}`).emit('order:updated', employeePayload);
     }
 
-    // 3. Notify Restaurant (invalidation signal)
+    // 3. Notify Restaurant staff with full data & backward-compatible invalidation
     if (restaurantId) {
+      io.to(`restaurant:${restaurantId}`).emit('order:updated', employeePayload);
+
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
-        reason: 'updated'
+        reason: 'updated',
+        order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
     }
@@ -148,7 +164,7 @@ function emitOrderUpdated(order, metadata = {}) {
  * 
  * 1. Emits 'order:cancelled' to customer room: customer:<customerId>
  * 2. Emits 'order:cancelled' to assigned waiter room: employee:<waiterId>
- * 3. Emits 'orders:invalidate' to restaurant room: restaurant:<restaurantId>
+ * 3. Emits 'orders:invalidate' and 'order:cancelled' to restaurant room: restaurant:<restaurantId>
  * 
  * @param {object} order - Cancelled mongoose order document
  * @param {object} [metadata]
@@ -166,7 +182,7 @@ function emitOrderCancelled(order, metadata = {}) {
 
     const reason = metadata.reason || order.cancellation?.reason || 'Cancelled by staff override';
 
-    const cancelData = {
+    const baseCancelData = {
       orderId,
       orderNumber: order.orderNumber,
       currentStepKey: order.currentStepKey,
@@ -174,23 +190,33 @@ function emitOrderCancelled(order, metadata = {}) {
       reason
     };
 
-    const cancelEnvelope = createEventEnvelope('order:cancelled', cancelData);
-
     // 1. Notify Customer
     if (customerId) {
-      io.to(`customer:${customerId}`).emit('order:cancelled', cancelEnvelope);
+      const customerPayload = createEventEnvelope('order:cancelled', {
+        ...baseCancelData,
+        order: serializeOrderForCustomer(order)
+      });
+      io.to(`customer:${customerId}`).emit('order:cancelled', customerPayload);
     }
 
-    // 2. Notify Assigned Waiter
+    // 2. Employee payload
+    const employeePayload = createEventEnvelope('order:cancelled', {
+      ...baseCancelData,
+      order: serializeOrderForEmployee(order)
+    });
+
     if (waiterId) {
-      io.to(`employee:${waiterId}`).emit('order:cancelled', cancelEnvelope);
+      io.to(`employee:${waiterId}`).emit('order:cancelled', employeePayload);
     }
 
-    // 3. Notify Restaurant (invalidation signal)
+    // 3. Notify Restaurant staff with full data & backward-compatible invalidation
     if (restaurantId) {
+      io.to(`restaurant:${restaurantId}`).emit('order:cancelled', employeePayload);
+
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
-        reason: 'cancelled'
+        reason: 'cancelled',
+        order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
     }

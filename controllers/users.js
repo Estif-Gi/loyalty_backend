@@ -222,14 +222,17 @@ exports.addStamps = async (req, res) => {
 
         // ── Socket push ──────────────────────────────────────────
         const io = getIo();
-        const userRoom = customer._id.toString();
+        const customerIdStr = customer._id.toString();
+        const customerRoom = `customer:${customerIdStr}`;
 
         if (io) {
-            io.to(userRoom).emit('profileData', {
+            const profilePayload = {
                 success: true,
                 data: customer.toObject()
-            });
-            console.log(`📡 Pushed stamp update to user room ${userRoom}`);
+            };
+            io.to(customerRoom).emit('profileData', profilePayload);
+            io.to(customerIdStr).emit('profileData', profilePayload);
+            console.log(`📡 Pushed stamp update to customer room ${customerRoom}`);
         } else {
             console.warn(`⚠️ Socket.IO instance not initialized for user ${customer._id}`);
         }
