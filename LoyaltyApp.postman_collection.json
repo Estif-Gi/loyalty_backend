@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "76313175-fb18-47c3-8f0d-4076e6de3bb1",
 		"name": "Loyalty App API",
-		"description": "API collection for the Loyalty App Backend",
+		"description": "API collection for the Loyalty App Backend.\n\n### Realtime WebSocket (Socket.IO) Integration\nThe backend supports real-time order lifecycle events via Socket.IO:\n- **Connection**: Connect to root `ws://localhost:5001` (or `http://localhost:5001`) with `auth: { token: \"<JWT>\" }`.\n- **Rooms**:\n  - `restaurant:<restaurantId>` & `orders:<restaurantId>`: Auto-joined by Owners and Assigned Employees.\n  - `order:<orderId>`: Auto-joined by Customers upon order placement, or dynamically via socket event `joinOrder`.\n- **Socket Client Events**:\n  - `joinRestaurant`: `{ restaurantId: \"<id>\" }` (requires owner/staff role for that restaurant)\n  - `joinOrder`: `{ orderId: \"<id>\" }` (requires ownership/assignment to that order)\n  - `leaveRestaurant`: `{ restaurantId: \"<id>\" }`\n- **Socket Server Events**:\n  - `order:created`: Fired when a customer submits a new order ticket.\n  - `order:updated`: Fired when an order progresses to next workflow step (e.g. PLACED -> SERVED -> COMPLETED).\n  - `order:cancelled`: Fired when an order is cancelled.\n  - `orders:invalidate`: Fired on bulk updates/re-indexing.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -253,6 +253,25 @@
 								"restaurants"
 							]
 						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Restaurants",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants"
+							]
+						},
+						"description": "Public endpoint to retrieve all active restaurants with customer-projected fields."
 					},
 					"response": []
 				},
@@ -676,6 +695,115 @@
 								"workflow"
 							]
 						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Order History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/orders/history?page=1&limit=10&status=history",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"orders",
+								"history"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page (default: 10, max: 100)"
+								},
+								{
+									"key": "status",
+									"value": "history",
+									"description": "Status filter: 'history' (default: COMPLETED, CANCELLED), 'completed', 'cancelled', 'active', 'all', or specific workflow step"
+								},
+								{
+									"key": "startDate",
+									"value": "2026-01-01T00:00:00.000Z",
+									"description": "ISO start date string ($gte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "endDate",
+									"value": "2026-12-31T23:59:59.999Z",
+									"description": "ISO end date string ($lte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "ORD-",
+									"description": "Search keyword in orderNumber or customerNotes",
+									"disabled": true
+								},
+								{
+									"key": "tableId",
+									"value": "{{tableId}}",
+									"description": "Filter by specific table ObjectId",
+									"disabled": true
+								},
+								{
+									"key": "waiterId",
+									"value": "{{waiterId}}",
+									"description": "Filter by assigned waiter ObjectId",
+									"disabled": true
+								},
+								{
+									"key": "sort",
+									"value": "desc",
+									"description": "Sort direction: 'desc' (default, newest first) or 'asc'",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieves paginated order history for a restaurant. Authorized for restaurant owners, assigned staff, and admins. Serializes full employee-facing order representations."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Restaurant Employee",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/employees/{{employeeId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"employees",
+								"{{employeeId}}"
+							]
+						},
+						"description": "Owner removes an employee from the restaurant."
 					},
 					"response": []
 				}
@@ -2344,7 +2472,218 @@
 								}
 							]
 						},
-						"description": "Restaurant owner retrieves the active order queue. Bypasses staff role visibility filters. Supports optional restaurantId filtering."
+						"description": "Restaurant owner retrieves the active order queue. Bypasses staff role visibility filters. Supports optional restaurantId filtering.\n\n⚡ REALTIME UPDATE NOTE:\nInstead of polling this endpoint repeatedly, clients should connect to the Socket.IO server:\n1. Connect with JWT auth token: io(baseUrl, { auth: { token: ownerToken } })\n2. The server automatically joins the owner to 'restaurant:<restaurantId>' and 'orders:<restaurantId>' rooms.\n3. Listen for real-time events:\n   - 'order:created': A new customer order was submitted.\n   - 'order:updated': An order step or state changed.\n   - 'order:cancelled': An order was cancelled.\n   - 'orders:invalidate': Bulk refresh signal."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Order History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/orders/history?page=1&limit=10&status=history",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"orders",
+								"history"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page (default: 10, max: 100)"
+								},
+								{
+									"key": "status",
+									"value": "history",
+									"description": "Status filter: 'history' (default: COMPLETED, CANCELLED), 'completed', 'cancelled', 'active', 'all', or specific workflow step"
+								},
+								{
+									"key": "startDate",
+									"value": "2026-01-01T00:00:00.000Z",
+									"description": "ISO start date string ($gte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "endDate",
+									"value": "2026-12-31T23:59:59.999Z",
+									"description": "ISO end date string ($lte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "ORD-",
+									"description": "Search keyword in orderNumber or customerNotes",
+									"disabled": true
+								},
+								{
+									"key": "tableId",
+									"value": "{{tableId}}",
+									"description": "Filter by specific table ObjectId",
+									"disabled": true
+								},
+								{
+									"key": "waiterId",
+									"value": "{{waiterId}}",
+									"description": "Filter by assigned waiter ObjectId",
+									"disabled": true
+								},
+								{
+									"key": "sort",
+									"value": "desc",
+									"description": "Sort direction: 'desc' (default, newest first) or 'asc'",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieves paginated order history for a restaurant. Authorized for restaurant owners, assigned staff, and admins. Serializes full employee-facing order representations."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Staff Order History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/history?status=history&page=1&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"history"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "history",
+									"description": "Filter by status: 'history' (default: COMPLETED, CANCELLED), 'completed', 'cancelled', 'active', 'all'"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page (default: 10, max: 100)"
+								},
+								{
+									"key": "restaurantId",
+									"value": "{{restaurantId}}",
+									"description": "Optional for employees (auto-scoped to employee's restaurant); required if calling with owner token",
+									"disabled": true
+								},
+								{
+									"key": "startDate",
+									"value": "2026-01-01T00:00:00.000Z",
+									"description": "ISO start date string ($gte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "endDate",
+									"value": "2026-12-31T23:59:59.999Z",
+									"description": "ISO end date string ($lte createdAt)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search keyword in orderNumber or notes",
+									"disabled": true
+								},
+								{
+									"key": "tableId",
+									"value": "{{tableId}}",
+									"description": "Filter by table ID",
+									"disabled": true
+								},
+								{
+									"key": "waiterId",
+									"value": "{{waiterId}}",
+									"description": "Filter by waiter ID",
+									"disabled": true
+								},
+								{
+									"key": "sort",
+									"value": "desc",
+									"description": "Sort order: 'desc' (default) or 'asc'",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Staff or owner retrieves restaurant order history through the employee route. Automatically scopes to the employee's assigned restaurant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Orders (by Status)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{ownerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/orders?status=active&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"restaurants",
+								"{{restaurantId}}",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "active",
+									"description": "Filter status: 'active', 'all', 'history', 'completed', 'cancelled', etc."
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Items per page"
+								}
+							]
+						},
+						"description": "Direct restaurant endpoint to retrieve orders filtered by status or all historical orders."
 					},
 					"response": []
 				},

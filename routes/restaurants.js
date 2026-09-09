@@ -52,4 +52,9 @@ router.get('/:id/workflow', verifyToken, checkRole('owner', 'employee'), restaur
 // Update custom order workflow steps (owner only)
 router.patch('/:id/workflow', verifyToken, checkRole('owner'), restaurantsController.updateWorkflow);
 
+// Restaurant order history & orders endpoint
+const restaurantOrderController = require('../controllers/restaurantOrderController');
+router.get('/:id/orders/history', verifyToken, restaurantOrderController.getRestaurantOrderHistory);
+router.get('/:id/orders', verifyToken, restaurantOrderController.getRestaurantOrderHistory);
+
 module.exports = router;

@@ -67,12 +67,13 @@ function emitOrderCreated(order) {
       io.to(`customer:${customerId}`).emit('order:created', customerPayload);
     }
 
-    // 3. Restaurant staff receives direct order data & backward-compatible invalidation signal
+    // 3. Restaurant staff & owner receives direct order data & backward-compatible invalidation signal
     if (restaurantId) {
       const restaurantOrderPayload = createEventEnvelope('order:created', {
         order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('order:created', restaurantOrderPayload);
+      io.to(`orders:${restaurantId}`).emit('order:created', restaurantOrderPayload);
 
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
@@ -80,6 +81,15 @@ function emitOrderCreated(order) {
         order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+      io.to(`orders:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+    }
+
+    // 4. Order-specific room notification
+    if (orderId) {
+      const orderRoomPayload = createEventEnvelope('order:created', {
+        order: serializeOrderForEmployee(order)
+      });
+      io.to(`order:${orderId}`).emit('order:created', orderRoomPayload);
     }
   } catch (err) {
     console.error('Realtime order event failed:', {
@@ -139,9 +149,10 @@ function emitOrderUpdated(order, metadata = {}) {
       io.to(`employee:${waiterId}`).emit('order:updated', employeePayload);
     }
 
-    // 3. Notify Restaurant staff with full data & backward-compatible invalidation
+    // 3. Notify Restaurant staff & owner with full data & backward-compatible invalidation
     if (restaurantId) {
       io.to(`restaurant:${restaurantId}`).emit('order:updated', employeePayload);
+      io.to(`orders:${restaurantId}`).emit('order:updated', employeePayload);
 
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
@@ -149,6 +160,12 @@ function emitOrderUpdated(order, metadata = {}) {
         order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+      io.to(`orders:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+    }
+
+    // 4. Order-specific room notification
+    if (orderId) {
+      io.to(`order:${orderId}`).emit('order:updated', employeePayload);
     }
   } catch (err) {
     console.error('Realtime order event failed:', {
@@ -209,9 +226,10 @@ function emitOrderCancelled(order, metadata = {}) {
       io.to(`employee:${waiterId}`).emit('order:cancelled', employeePayload);
     }
 
-    // 3. Notify Restaurant staff with full data & backward-compatible invalidation
+    // 3. Notify Restaurant staff & owner with full data & backward-compatible invalidation
     if (restaurantId) {
       io.to(`restaurant:${restaurantId}`).emit('order:cancelled', employeePayload);
+      io.to(`orders:${restaurantId}`).emit('order:cancelled', employeePayload);
 
       const invalidatePayload = createEventEnvelope('orders:invalidate', {
         orderId,
@@ -219,6 +237,12 @@ function emitOrderCancelled(order, metadata = {}) {
         order: serializeOrderForEmployee(order)
       });
       io.to(`restaurant:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+      io.to(`orders:${restaurantId}`).emit('orders:invalidate', invalidatePayload);
+    }
+
+    // 4. Order-specific room notification
+    if (orderId) {
+      io.to(`order:${orderId}`).emit('order:cancelled', employeePayload);
     }
   } catch (err) {
     console.error('Realtime order event failed:', {

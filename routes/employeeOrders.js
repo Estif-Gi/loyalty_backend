@@ -10,6 +10,13 @@ router.get(
   employeeOrderController.getEmployeeOrders
 );
 
+const restaurantOrderController = require('../controllers/restaurantOrderController');
+router.get(
+  '/history',
+  verifyToken,
+  restaurantOrderController.getRestaurantOrderHistory
+);
+
 router.post(
   '/:orderId/advance',
   verifyToken,

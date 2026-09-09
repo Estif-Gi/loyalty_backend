@@ -20,7 +20,7 @@ describe('Production-Grade Socket.IO Realtime Order Updates', () => {
 
   let customerUser, customerToken;
   let customerUserB, customerTokenB;
-  let ownerUser;
+  let ownerUser, ownerToken;
   let waiterA, waiterAToken;
   let waiterB, waiterBToken;
   let inactiveWaiter, inactiveWaiterToken;
@@ -133,6 +133,7 @@ describe('Production-Grade Socket.IO Realtime Order Updates', () => {
       password: 'password123',
       role: 'owner'
     });
+    ownerToken = jwt.sign({ id: ownerUser._id, role: 'owner' }, process.env.JWT_SECRET);
 
     // Restaurant A
     restaurantA = await Restaurant.create({
@@ -592,4 +593,90 @@ describe('Production-Grade Socket.IO Realtime Order Updates', () => {
 
     await Promise.all([noOrderCreated, noInvalidate]);
   });
+
+  // Test 61: Restaurant Owner joins restaurant room & receives realtime order updates
+  test('Restaurant Owner joins restaurant room and receives realtime order updates', async () => {
+    const ownerSocket = await connectSocket(ownerToken);
+    expect(ownerSocket.connected).toBe(true);
+
+    const ownerOrderCreatedPromise = waitForEvent(ownerSocket, 'order:created');
+    const ownerInvalidatePromise = waitForEvent(ownerSocket, 'orders:invalidate');
+
+    // Customer places order
+    const res = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', 'owner-realtime-key-1')
+      .send({
+        orderSessionId: sessionA._id,
+        location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
+        items: [{ menuItemId: mockMenuItemId, quantity: 1 }],
+        customerNotes: 'Table needs water'
+      });
+
+    expect(res.status).toBe(201);
+    const orderId = res.body.data.order.id;
+
+    const createdEvent = await ownerOrderCreatedPromise;
+    expect(createdEvent.type).toBe('order:created');
+    expect(createdEvent.data.order.id.toString()).toBe(orderId.toString());
+
+    const invalidateEvent = await ownerInvalidatePromise;
+    expect(invalidateEvent.type).toBe('orders:invalidate');
+    expect(invalidateEvent.data.orderId.toString()).toBe(orderId.toString());
+
+    // Advance order and verify owner receives order:updated
+    const ownerUpdatedPromise = waitForEvent(ownerSocket, 'order:updated');
+
+    const advanceRes = await request(app)
+      .post(`/api/employee/orders/${orderId}/advance`)
+      .set('Authorization', `Bearer ${waiterAToken}`)
+      .send({ expectedStep: 'placed' });
+
+    expect(advanceRes.status).toBe(200);
+
+    const updatedEvent = await ownerUpdatedPromise;
+    expect(updatedEvent.type).toBe('order:updated');
+    expect(updatedEvent.data.orderId.toString()).toBe(orderId.toString());
+    expect(updatedEvent.data.currentStepKey).toBe('served');
+  }, 60000);
+
+  // Test 62: Dynamic joinRestaurant and joinOrder socket events
+  test('Dynamic join events: joinRestaurant and joinOrder allow authorized room subscription', async () => {
+    const ownerSocket = await connectSocket(ownerToken);
+
+    // 1. Join restaurant via event
+    const joinRestPromise = new Promise((resolve) => {
+      ownerSocket.emit('joinRestaurant', { restaurantId: restaurantA._id.toString() }, (ack) => {
+        resolve(ack);
+      });
+    });
+    const restAck = await joinRestPromise;
+    expect(restAck.success).toBe(true);
+    expect(restAck.room).toBe(`restaurant:${restaurantA._id}`);
+
+    // Create an order
+    const res = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', 'dynamic-room-join-key')
+      .send({
+        orderSessionId: sessionA._id,
+        location: { latitude: 9.0201, longitude: 38.7501, accuracy: 15 },
+        items: [{ menuItemId: mockMenuItemId, quantity: 1 }]
+      });
+
+    expect(res.status).toBe(201);
+    const orderId = res.body.data.order.id;
+
+    // 2. Join specific order via joinOrder
+    const joinOrderPromise = new Promise((resolve) => {
+      ownerSocket.emit('joinOrder', { orderId }, (ack) => {
+        resolve(ack);
+      });
+    });
+    const orderAck = await joinOrderPromise;
+    expect(orderAck.success).toBe(true);
+    expect(orderAck.room).toBe(`order:${orderId}`);
+  }, 60000);
 });
