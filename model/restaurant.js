@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { isValidEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
 
 const orderWorkflowStepSchema = new Schema(
   {
@@ -127,7 +128,14 @@ const restaurantSchema = new Schema({
     },
     phone: { 
         type: String, 
-        trim: true 
+        trim: true,
+        validate: {
+            validator: function(v) {
+                if (!v) return true;
+                return isValidEthiopianPhone(v, { allowLandline: true });
+            },
+            message: props => `${props.value} is not a valid Ethiopian phone number. ${ETHIOPIAN_PHONE_ERROR_MESSAGE}`
+        }
     },
     owner: { 
         type: Schema.Types.ObjectId, 
@@ -206,6 +214,16 @@ const restaurantSchema = new Schema({
     }
 
 }, { timestamps: true });
+
+// Automatically normalize restaurant phone number before validation and saving
+restaurantSchema.pre('validate', function() {
+    if (this.phone) {
+        const normalized = normalizeEthiopianPhone(this.phone, { allowLandline: true });
+        if (normalized) {
+            this.phone = normalized;
+        }
+    }
+});
 
 // === Indexes ===
 restaurantSchema.index({ owner: 1 });                    // Most important

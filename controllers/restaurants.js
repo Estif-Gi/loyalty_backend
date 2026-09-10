@@ -8,13 +8,28 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getRestaurantAndLimits } = require('../utils/billingLimits');
 const { validateWorkflow, WORKFLOW_DEFINITIONS } = require('../utils/workflow');
+const { validateEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
 
 exports.createRestaurant = async (req, res) => {
     const { name, phone, location, themeColor } = req.body;
+    let normalizedPhone = phone;
+
+    if (phone) {
+        const phoneValidation = validateEthiopianPhone(phone, { allowLandline: true });
+        if (!phoneValidation.isValid) {
+            return res.status(400).json({
+                success: false,
+                error: "INVALID_ETHIOPIAN_PHONE_NUMBER",
+                message: phoneValidation.error || ETHIOPIAN_PHONE_ERROR_MESSAGE
+            });
+        }
+        normalizedPhone = phoneValidation.normalized;
+    }
+
     const owner = req.user.id;
     const restaurant = new Restaurant({
         name,
-        phone,
+        phone: normalizedPhone,
         location,
         themeColor,
         owner
@@ -133,7 +148,21 @@ exports.updateRestaurant = async (req, res) => {
         }
 
         if (name) restaurant.name = name;
-        if (phone) restaurant.phone = phone;
+        if (phone !== undefined) {
+            if (phone) {
+                const phoneValidation = validateEthiopianPhone(phone, { allowLandline: true });
+                if (!phoneValidation.isValid) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "INVALID_ETHIOPIAN_PHONE_NUMBER",
+                        message: phoneValidation.error || ETHIOPIAN_PHONE_ERROR_MESSAGE
+                    });
+                }
+                restaurant.phone = phoneValidation.normalized;
+            } else {
+                restaurant.phone = phone;
+            }
+        }
         if (location) restaurant.location = location;
         if (themeColor) restaurant.themeColor = themeColor;
 

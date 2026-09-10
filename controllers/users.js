@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getIo } = require('../sockets/ioInstance');
 const { getLimitsForTier } = require('../utils/billingLimits');
+const { validateEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
 
 exports.register = async (req, res) => {
     try {
@@ -23,8 +24,28 @@ exports.register = async (req, res) => {
             });
         }
 
+        // Validate Ethiopian Phone Number
+        if (!phone || typeof phone !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: "PHONE_NUMBER_REQUIRED",
+                message: "Phone number is required."
+            });
+        }
+
+        const phoneValidation = validateEthiopianPhone(phone);
+        if (!phoneValidation.isValid) {
+            return res.status(400).json({
+                success: false,
+                error: "INVALID_ETHIOPIAN_PHONE_NUMBER",
+                message: phoneValidation.error || ETHIOPIAN_PHONE_ERROR_MESSAGE
+            });
+        }
+
+        const normalizedPhone = phoneValidation.normalized;
+
         // Check if user exists
-        let user = await User.findOne({ phone });
+        let user = await User.findOne({ phone: normalizedPhone });
         if (user) {
             return res.status(400).json({ message: 'User already exists' });
         }
@@ -34,7 +55,7 @@ exports.register = async (req, res) => {
 
         user = new User({
             name,
-            phone,
+            phone: normalizedPhone,
             password: hashedPassword,
             role: 'customer' // Force role to customer
         });
@@ -55,7 +76,15 @@ exports.login = async (req, res) => {
     try {
         const { phone, password } = req.body;
 
-        const user = await User.findOne({ phone });
+        if (!phone || typeof phone !== 'string') {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+
+        const normalizedPhone = normalizeEthiopianPhone(phone) || phone.trim();
+
+        const user = await User.findOne({
+            $or: [{ phone: normalizedPhone }, { phone: phone.trim() }]
+        });
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
