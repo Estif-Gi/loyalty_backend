@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../model/users');
 const Employee = require('../model/employee');
 const Restaurant = require('../model/restaurant');
@@ -307,6 +308,148 @@ exports.saveFcmToken = async (req, res) => {
     } catch (error) {
         console.error('🔥 Error in saveFcmToken:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Create user with privileged role (Admin only)
+exports.createUserByAdmin = async (req, res) => {
+    try {
+        const { name, phone, password, role } = req.body;
+
+        if (!name || typeof name !== 'string' || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                error: 'NAME_REQUIRED',
+                message: 'Name is required.'
+            });
+        }
+
+        if (!password || typeof password !== 'string' || password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'PASSWORD_REQUIRED',
+                message: 'Password is required and must be at least 6 characters long.'
+            });
+        }
+
+        if (!phone || typeof phone !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: 'PHONE_NUMBER_REQUIRED',
+                message: 'Phone number is required.'
+            });
+        }
+
+        const phoneValidation = validateEthiopianPhone(phone);
+        if (!phoneValidation.isValid) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_ETHIOPIAN_PHONE_NUMBER',
+                message: phoneValidation.error || ETHIOPIAN_PHONE_ERROR_MESSAGE
+            });
+        }
+
+        const normalizedPhone = phoneValidation.normalized;
+
+        const allowedRoles = ['customer', 'owner', 'admin'];
+        const assignedRole = role || 'owner';
+
+        if (!allowedRoles.includes(assignedRole)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_ROLE',
+                message: `Invalid role specified. Allowed roles are: ${allowedRoles.join(', ')}.`
+            });
+        }
+
+        // Check if user exists
+        const existingUser = await User.findOne({ phone: normalizedPhone });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                error: 'USER_ALREADY_EXISTS',
+                message: 'User with this phone number already exists.'
+            });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = new User({
+            name: name.trim(),
+            phone: normalizedPhone,
+            password: hashedPassword,
+            role: assignedRole
+        });
+
+        await newUser.save();
+
+        res.status(201).json({
+            success: true,
+            message: `User created successfully with role ${assignedRole}.`,
+            user: {
+                id: newUser._id,
+                name: newUser.name,
+                phone: newUser.phone,
+                role: newUser.role,
+                createdAt: newUser.createdAt
+            }
+        });
+    } catch (error) {
+        console.error('🔥 Error in createUserByAdmin:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Update user role (Admin only)
+exports.updateUserRole = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body;
+
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_USER_ID',
+                message: 'The provided user ID is not a valid ObjectId.'
+            });
+        }
+
+        const allowedRoles = ['customer', 'owner', 'admin'];
+        if (!role || !allowedRoles.includes(role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_ROLE',
+                message: `Valid role is required. Allowed roles are: ${allowedRoles.join(', ')}.`
+            });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'USER_NOT_FOUND',
+                message: 'User not found.'
+            });
+        }
+
+        user.role = role;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: `User role updated successfully to ${role}.`,
+            user: {
+                id: user._id,
+                name: user.name,
+                phone: user.phone,
+                role: user.role,
+                updatedAt: user.updatedAt
+            }
+        });
+    } catch (error) {
+        console.error('🔥 Error in updateUserRole:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 

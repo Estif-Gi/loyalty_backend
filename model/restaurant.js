@@ -176,12 +176,26 @@ const restaurantSchema = new Schema({
         total: { type: Number, default: 0 }
     },
 
-    // Billing Status
+    // Billing Status & Audit Metadata
     billingStatus: { 
         type: String, 
         enum: ['free', 'loyal', 'trustworthy', 'faithful'], 
         default: 'free',
         required: true 
+    },
+    billingUpdatedAt: {
+        type: Date,
+        default: null
+    },
+    billingUpdatedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    billingNote: {
+        type: String,
+        trim: true,
+        default: null
     },
 
     // Physical Ordering Configuration

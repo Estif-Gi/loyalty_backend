@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, '.env') });
 const { validateEncryptionConfig } = require('./utils/crypto');
 validateEncryptionConfig();
 const { setIo } = require('./sockets/ioInstance');
@@ -92,6 +92,7 @@ app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/order-sessions", require("./routes/orderSessions"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/employee/orders", require("./routes/employeeOrders"));
+app.use("/api/admin", require("./routes/admin"));
 
 // 7. Global error handler — must be last
 app.use((err, req, res, next) => {
