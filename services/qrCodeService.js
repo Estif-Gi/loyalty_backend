@@ -24,7 +24,7 @@ function hashToken(token) {
  * @returns {string} Scannable frontend URL
  */
 function buildQrUrl(token) {
-  const baseUrl = process.env.FRONTEND_BASE_URL || 'https://loyalty-customer.vercel.app';
+  const baseUrl = process.env.FRONTEND_BASE_URL ;
   return `${baseUrl}/order/start?t=${token}`;
 }
 

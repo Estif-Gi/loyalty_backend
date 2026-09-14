@@ -13,6 +13,7 @@ const {
   normalizeEthiopianPhone,
   ETHIOPIAN_PHONE_ERROR_MESSAGE
 } = require('../utils/phoneValidation');
+const { normalizeToOklch, DEFAULT_OKLCH_THEME } = require('../utils/colorUtils');
 
 const ALLOWED_TIERS = ['free', 'loyal', 'trustworthy', 'faithful'];
 
@@ -145,7 +146,7 @@ exports.createRestaurantWithOwner = async ({ ownerData, restaurantData, adminId,
       name: resName.trim(),
       phone: normalizedResPhone,
       location: resLocation ? resLocation.trim() : '',
-      themeColor: resThemeColor ? resThemeColor.trim() : '#7A4B2A',
+      themeColor: resThemeColor ? normalizeToOklch(resThemeColor) : DEFAULT_OKLCH_THEME,
       billingStatus: tier,
       billingUpdatedAt: new Date(),
       billingUpdatedBy: adminId,
@@ -523,7 +524,7 @@ exports.updateRestaurantDetails = async ({ restaurantId, updates, adminId, reqMe
   }
 
   if (themeColor !== undefined) {
-    restaurant.themeColor = themeColor ? themeColor.trim() : '#7A4B2A';
+    restaurant.themeColor = themeColor ? normalizeToOklch(themeColor) : DEFAULT_OKLCH_THEME;
   }
 
   if (orderingEnabled !== undefined) {

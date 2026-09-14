@@ -110,6 +110,30 @@ describe('Admin API Endpoints Integration Tests', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.data.restaurant.billingStatus).toBe('free');
+      expect(res.body.data.restaurant.themeColor).toMatch(/^oklch\(/);
+    });
+
+    test('stores themeColor in OKLCH color space when hex or OKLCH is provided', async () => {
+      const res = await request(app)
+        .post('/api/admin/restaurants')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          owner: {
+            name: 'Kenenisa Bekele',
+            phone: '0914223344',
+            password: 'Password123!'
+          },
+          restaurant: {
+            name: 'Stadium Lounge',
+            themeColor: '#1E3A8A' // Hex color input
+          }
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.restaurant.themeColor).toBe('oklch(0.379 0.138 265.5)');
+
+      const dbRes = await Restaurant.findById(res.body.data.restaurant.id);
+      expect(dbRes.themeColor).toBe('oklch(0.379 0.138 265.5)');
     });
 
     test('rejects duplicate owner phone number', async () => {

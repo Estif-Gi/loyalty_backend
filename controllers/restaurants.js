@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { getRestaurantAndLimits } = require('../utils/billingLimits');
 const { validateWorkflow, WORKFLOW_DEFINITIONS } = require('../utils/workflow');
 const { validateEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
+const { normalizeToOklch, DEFAULT_OKLCH_THEME } = require('../utils/colorUtils');
 
 exports.createRestaurant = async (req, res) => {
     const { name, phone, location, themeColor } = req.body;
@@ -31,7 +32,7 @@ exports.createRestaurant = async (req, res) => {
         name,
         phone: normalizedPhone,
         location,
-        themeColor,
+        themeColor: themeColor ? normalizeToOklch(themeColor) : DEFAULT_OKLCH_THEME,
         owner
     });
     try {
