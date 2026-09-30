@@ -3,8 +3,11 @@ const RestaurantTable = require('../model/restaurantTable');
 const Restaurant = require('../model/restaurant');
 const Employee = require('../model/employee');
 const RestaurantQrCode = require('../model/restaurantQrCode');
+const OrderSession = require('../model/orderSession');
+const Order = require('../model/order');
 
-function serializeTable(table, activeQrTableIds = new Set()) {
+function serializeTable(table, activeQrTableIds = new Set(), activeSessionsByTable = new Map()) {
+  const activeSession = activeSessionsByTable.get(table._id.toString()) || null;
   return {
     id: table._id,
     name: table.name,
@@ -18,6 +21,8 @@ function serializeTable(table, activeQrTableIds = new Set()) {
     } : null,
     waiterAssignedAt: table.waiterAssignedAt,
     hasActiveQr: activeQrTableIds.has(table._id.toString()),
+    hasActiveSession: Boolean(activeSession),
+    activeSession: activeSession,
     createdAt: table.createdAt,
     updatedAt: table.updatedAt
   };
@@ -133,9 +138,55 @@ exports.getTables = async (req, res) => {
     const activeQrs = await RestaurantQrCode.find({ restaurant: restaurantId, isActive: true });
     const activeQrTableIds = new Set(activeQrs.map(q => q.table.toString()));
 
+    // Active session resolution with 15-minute walk-away expiry rule
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+    const activeSessions = await OrderSession.find({
+      restaurant: restaurantId,
+      status: 'active',
+      expiresAt: { $gt: new Date() }
+    }).populate('customer', 'name phone');
+
+    const sessionIds = activeSessions.map(s => s._id);
+    const existingOrders = await Order.find({
+      orderSession: { $in: sessionIds }
+    }).select('orderSession systemState');
+
+    const orderedSessionIds = new Set(existingOrders.map(o => o.orderSession.toString()));
+
+    const staleUnorderedSessionIds = [];
+    const validActiveSessionsByTable = new Map();
+
+    for (const session of activeSessions) {
+      const hasOrder = orderedSessionIds.has(session._id.toString());
+      const isOlderThan15Mins = new Date(session.createdAt) < fifteenMinutesAgo;
+
+      if (!hasOrder && isOlderThan15Mins) {
+        // Guest scanned QR > 15 mins ago and never ordered -> Walked away! Auto-expire session.
+        staleUnorderedSessionIds.push(session._id);
+      } else if (!hasOrder) {
+        // Fresh active session (< 15 mins) -> Guest is seated / browsing menu
+        validActiveSessionsByTable.set(session.table.toString(), {
+          id: session._id,
+          customer: session.customer ? { id: session.customer._id, name: session.customer.name } : null,
+          startedAt: session.createdAt,
+          expiresAt: session.expiresAt,
+          minutesAgo: Math.max(0, Math.floor((Date.now() - new Date(session.createdAt).getTime()) / 60000))
+        });
+      }
+    }
+
+    // Auto-expire stale unordered sessions in database
+    if (staleUnorderedSessionIds.length > 0) {
+      await OrderSession.updateMany(
+        { _id: { $in: staleUnorderedSessionIds } },
+        { $set: { status: 'expired' } }
+      );
+    }
+
     res.json({
       success: true,
-      data: tables.map((t) => serializeTable(t, activeQrTableIds))
+      data: tables.map((t) => serializeTable(t, activeQrTableIds, validActiveSessionsByTable))
     });
   } catch (error) {
     console.error('🔥 Error in getTables:', error);
