@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 const Order = require('../model/order');
 const { resolveNextTransition } = require('../services/orderWorkflowService');
-const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
+const { ORDER_ERROR_CODES, SYSTEM_STATES, PAYMENT_STATUSES, PAYMENT_METHODS } = require('../constants/orders');
 
 const Restaurant = require('../model/restaurant');
 
-const { serializeOrderForEmployee } = require('../serializers/orderSerializer');
+const { serializeOrderForEmployee, serializeOrderPaymentResponse } = require('../serializers/orderSerializer');
 const { emitOrderUpdated, emitOrderCancelled } = require('../services/orderRealtimeService');
 
 exports.getEmployeeOrders = async (req, res) => {
@@ -317,3 +317,175 @@ exports.cancelOrder = async (req, res) => {
     });
   }
 };
+
+/**
+ * Updates order payment status to paid.
+ * 
+ * Supports:
+ * - Restaurant owners for orders in their restaurant
+ * - Employees assigned to the restaurant who hold the 'orders:payment' permission (e.g. cashiers, waiters)
+ * - Platform admins
+ * 
+ * Request body:
+ * - method: (optional) 'cash' (default), 'card', 'telebirr', 'other'
+ * - status: (optional) 'paid' (default)
+ * 
+ * Emits realtime 'order:updated' event across all order rooms.
+ */
+exports.updateOrderPayment = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { method = PAYMENT_METHODS.CASH, status = PAYMENT_STATUSES.PAID } = req.body || {};
+
+    if (!orderId || !mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_NOT_FOUND,
+        message: 'Invalid order ID format.'
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_NOT_FOUND,
+        message: 'Order not found.'
+      });
+    }
+
+    const userRole = req.user?.role;
+    const userId = req.user?.id;
+
+    // Authorization verification
+    if (userRole === 'admin') {
+      // Platform admin has universal access
+    } else if (userRole === 'owner') {
+      const ownedRestaurant = await Restaurant.findOne({ _id: order.restaurant, owner: userId }).select('_id');
+      if (!ownedRestaurant) {
+        return res.status(403).json({
+          success: false,
+          error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+          message: 'Not authorized. You do not own this restaurant.'
+        });
+      }
+    } else if (userRole === 'employee') {
+      if (!req.employee || req.employee.restaurantId !== order.restaurant.toString()) {
+        return res.status(403).json({
+          success: false,
+          error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+          message: 'Not authorized. This order belongs to another restaurant.'
+        });
+      }
+
+      if (!req.employee.permissions || !req.employee.permissions.includes('orders:payment')) {
+        return res.status(403).json({
+          success: false,
+          error: ORDER_ERROR_CODES.ORDER_PAYMENT_PERMISSION_DENIED,
+          message: 'Your role does not have permission to process payments.'
+        });
+      }
+    } else {
+      return res.status(403).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_ACCESS_DENIED,
+        message: 'Access denied.'
+      });
+    }
+
+    // Check system state
+    if (order.systemState === SYSTEM_STATES.CANCELLED) {
+      return res.status(400).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_PAYMENT_NOT_ALLOWED,
+        message: 'Cannot process payment for a cancelled order.'
+      });
+    }
+
+    // Idempotency check: Already paid
+    if (order.payment && order.payment.status === PAYMENT_STATUSES.PAID) {
+      return res.status(409).json({
+        success: false,
+        error: ORDER_ERROR_CODES.ORDER_ALREADY_PAID,
+        message: 'This order is already marked as paid.',
+        data: {
+          order: serializeOrderPaymentResponse(order)
+        }
+      });
+    }
+
+    // Validate payment method
+    const validMethods = Object.values(PAYMENT_METHODS);
+    const normalizedMethod = typeof method === 'string' ? method.toLowerCase() : '';
+    if (!validMethods.includes(normalizedMethod)) {
+      return res.status(400).json({
+        success: false,
+        error: ORDER_ERROR_CODES.INVALID_PAYMENT_METHOD,
+        message: `Invalid payment method '${method}'. Allowed methods: ${validMethods.join(', ')}.`
+      });
+    }
+
+    // Validate target status
+    if (status !== PAYMENT_STATUSES.PAID) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_PAYMENT_STATUS',
+        message: `Target status must be '${PAYMENT_STATUSES.PAID}'.`
+      });
+    }
+
+    // Proof URL can come from Cloudinary file upload (req.file.path) or direct JSON body
+    const uploadedProofUrl = req.file?.path || req.file?.secure_url;
+    const bodyProofUrl = req.body?.proofUrl || req.body?.proof || req.body?.receiptUrl;
+    const proofUrl = uploadedProofUrl || bodyProofUrl || null;
+
+    // Update payment details
+    order.payment = {
+      status: PAYMENT_STATUSES.PAID,
+      method: normalizedMethod,
+      paidAt: new Date(),
+      proofUrl: proofUrl || order.payment?.proofUrl || null
+    };
+
+    const actorType = userRole === 'owner' ? 'employee' : (userRole === 'admin' ? 'system' : 'employee');
+    const actorId = req.employee ? req.employee.id : userId;
+    const actorRole = req.employee ? req.employee.role : userRole;
+    const timelineNote = proofUrl
+      ? `Payment recorded via ${normalizedMethod.toUpperCase()} (proof attached)`
+      : `Payment recorded via ${normalizedMethod.toUpperCase()}`;
+
+    order.timeline.push({
+      stepKey: order.currentStepKey,
+      systemState: order.systemState,
+      actorType,
+      actorId,
+      actorRole,
+      action: 'payment_settled',
+      note: timelineNote
+    });
+
+    await order.save();
+
+    await order.populate('table', 'name code');
+    await order.populate('service.waiter', 'name role');
+
+    // Broadcast realtime event
+    emitOrderUpdated(order);
+
+    res.json({
+      success: true,
+      message: 'Payment recorded successfully.',
+      data: {
+        order: serializeOrderPaymentResponse(order)
+      }
+    });
+  } catch (error) {
+    console.error('🔥 Error in updateOrderPayment:', error);
+    res.status(500).json({
+      success: false,
+      error: ORDER_ERROR_CODES.SERVER_ERROR,
+      message: 'Server error processing payment.'
+    });
+  }
+};
+

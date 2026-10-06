@@ -23,7 +23,6 @@ Thumbs.db
 # editor directories and files
 .vscode/
 .idea/
-
 # build output
 dist/
 build/
@@ -36,3 +35,6 @@ coverage/
 
 # documentation files
 *.md
+!README.md
+!ordering_flow_guide.md
+EMPLOYEE_APP_INTEGRATION_GUIDE.md

@@ -2822,6 +2822,289 @@
 						"description": "Staff overrides and cancels the order ticket."
 					},
 					"response": []
+				},
+				{
+					"name": "Record Order Payment (JSON)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"method\": \"telebirr\",\n  \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1/loyalty_app/payment_proofs/receipt.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/payment",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"payment"
+							]
+						},
+						"description": "Records order payment settlement and transitions payment.status to 'paid'. Authorized for restaurant owners, cashiers, and assigned waiters holding the 'orders:payment' permission.\n\nBody Parameters (JSON):\n- method: 'cash' | 'card' | 'telebirr' | 'other' (optional, defaults to 'cash')\n- proofUrl: Optional direct URL string of a receipt or mobile transaction screenshot.\n\nRealtime Broadcast:\n- Broadcasts 'order:updated' event over Socket.IO to restaurant, table, waiter, and customer rooms.\n\nResponse:\n- Returns only essential order payment details (id, orderNumber, table, pricing, payment with status/method/paidAt/proofUrl, step, state, updatedAt) avoiding bulky timeline and workflow definitions."
+					},
+					"response": [
+						{
+							"name": "Successful Payment Settlement (Streamlined Response)",
+							"originalRequest": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{employeeToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"method\": \"telebirr\",\n  \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1728210403/loyalty_app/payment_proofs/receipt_example.jpg\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/payment",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"employee",
+										"orders",
+										"{{orderId}}",
+										"payment"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"message\": \"Payment recorded successfully.\",\n  \"data\": {\n    \"order\": {\n      \"id\": \"6ac4be4aae2738015b5ba108\",\n      \"orderNumber\": \"ORD-122\",\n      \"table\": {\n        \"id\": \"6aa93d08b3c73488db93eaec\",\n        \"_id\": \"6aa93d08b3c73488db93eaec\",\n        \"name\": \"Table4\",\n        \"code\": \"TABLE4\"\n      },\n      \"pricing\": {\n        \"subtotal\": 200,\n        \"discount\": 0,\n        \"tax\": 0,\n        \"serviceCharge\": 0,\n        \"total\": 200,\n        \"currency\": \"ETB\"\n      },\n      \"payment\": {\n        \"status\": \"paid\",\n        \"method\": \"telebirr\",\n        \"paidAt\": \"2026-10-06T09:26:43.778Z\",\n        \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1728210403/loyalty_app/payment_proofs/receipt_example.jpg\"\n      },\n      \"currentStepKey\": \"served\",\n      \"systemState\": \"IN_PROGRESS\",\n      \"updatedAt\": \"2026-10-06T09:26:43.806Z\"\n    }\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Pay Order with Receipt Photo (Multipart Form-Data)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "method",
+									"value": "telebirr",
+									"type": "text",
+									"description": "Payment method: 'cash', 'card', 'telebirr', or 'other' (optional, defaults to 'cash')"
+								},
+								{
+									"key": "proof",
+									"type": "file",
+									"src": [],
+									"description": "Optional receipt photo or mobile payment SMS screen taken by waiter. Automatically uploaded to Cloudinary (folder: loyalty_app/payment_proofs) and the secure link is stored in order.payment.proofUrl."
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/pay",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"pay"
+							]
+						},
+						"description": "Allows waiters to upload an image proof of payment (e.g. photo of paper receipt, Telebirr/CBE Birr SMS screen) taken with their phone/tablet.\n\nKey Highlights:\n- Multipart form-data upload with field 'proof' (also accepts 'proofImage', 'image', or 'receipt').\n- Automatic Cloudinary upload into 'loyalty_app/payment_proofs' with max 1600x1600 resolution.\n- Image is completely OPTIONAL — order will settle successfully even if no file is attached.\n- Stores the resulting Cloudinary URL in order.payment.proofUrl.\n- Emits 'order:updated' over Socket.IO in real time.\n- Returns streamlined response."
+					},
+					"response": [
+						{
+							"name": "Successful Payment with Cloudinary Upload (Streamlined Response)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{employeeToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "method",
+											"value": "telebirr",
+											"type": "text"
+										},
+										{
+											"key": "proof",
+											"type": "file",
+											"src": []
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/pay",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"employee",
+										"orders",
+										"{{orderId}}",
+										"pay"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"message\": \"Payment recorded successfully.\",\n  \"data\": {\n    \"order\": {\n      \"id\": \"6ac4be4aae2738015b5ba108\",\n      \"orderNumber\": \"ORD-122\",\n      \"table\": {\n        \"id\": \"6aa93d08b3c73488db93eaec\",\n        \"_id\": \"6aa93d08b3c73488db93eaec\",\n        \"name\": \"Table4\",\n        \"code\": \"TABLE4\"\n      },\n      \"pricing\": {\n        \"subtotal\": 200,\n        \"discount\": 0,\n        \"tax\": 0,\n        \"serviceCharge\": 0,\n        \"total\": 200,\n        \"currency\": \"ETB\"\n      },\n      \"payment\": {\n        \"status\": \"paid\",\n        \"method\": \"telebirr\",\n        \"paidAt\": \"2026-10-06T09:26:43.778Z\",\n        \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1728210403/loyalty_app/payment_proofs/receipt_example.jpg\"\n      },\n      \"currentStepKey\": \"served\",\n      \"systemState\": \"IN_PROGRESS\",\n      \"updatedAt\": \"2026-10-06T09:26:43.806Z\"\n    }\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Pay Order (Action Alias - JSON)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{employeeToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"method\": \"cash\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/pay",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"employee",
+								"orders",
+								"{{orderId}}",
+								"pay"
+							]
+						},
+						"description": "Convenience POST action endpoint to settle payment without image upload. Functions identically to PATCH /api/employee/orders/:orderId/payment."
+					},
+					"response": [
+						{
+							"name": "Successful Payment Settlement (Streamlined Response)",
+							"originalRequest": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{employeeToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"method\": \"telebirr\",\n  \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1728210403/loyalty_app/payment_proofs/receipt_example.jpg\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/employee/orders/{{orderId}}/payment",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"employee",
+										"orders",
+										"{{orderId}}",
+										"payment"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"message\": \"Payment recorded successfully.\",\n  \"data\": {\n    \"order\": {\n      \"id\": \"6ac4be4aae2738015b5ba108\",\n      \"orderNumber\": \"ORD-122\",\n      \"table\": {\n        \"id\": \"6aa93d08b3c73488db93eaec\",\n        \"_id\": \"6aa93d08b3c73488db93eaec\",\n        \"name\": \"Table4\",\n        \"code\": \"TABLE4\"\n      },\n      \"pricing\": {\n        \"subtotal\": 200,\n        \"discount\": 0,\n        \"tax\": 0,\n        \"serviceCharge\": 0,\n        \"total\": 200,\n        \"currency\": \"ETB\"\n      },\n      \"payment\": {\n        \"status\": \"paid\",\n        \"method\": \"telebirr\",\n        \"paidAt\": \"2026-10-06T09:26:43.778Z\",\n        \"proofUrl\": \"https://res.cloudinary.com/loyaltyImages/image/upload/v1728210403/loyalty_app/payment_proofs/receipt_example.jpg\"\n      },\n      \"currentStepKey\": \"served\",\n      \"systemState\": \"IN_PROGRESS\",\n      \"updatedAt\": \"2026-10-06T09:26:43.806Z\"\n    }\n  }\n}"
+						}
+					]
 				}
 			]
 		}

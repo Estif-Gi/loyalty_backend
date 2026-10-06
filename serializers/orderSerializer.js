@@ -84,7 +84,8 @@ function serializeOrderForCustomer(order, options = {}) {
     payment: {
       status: order.payment?.status,
       method: order.payment?.method,
-      paidAt: order.payment?.paidAt || null
+      paidAt: order.payment?.paidAt || null,
+      proofUrl: order.payment?.proofUrl || null
     },
     cancellation: order.cancellation?.cancelledAt
       ? {
@@ -228,8 +229,43 @@ function serializeOrderRealtimeSummary(order) {
   };
 }
 
+/**
+ * Serializes order specifically for payment settlement responses.
+ * Returns only the necessary data: id, orderNumber, table, pricing, payment, step, state, and updatedAt.
+ * 
+ * @param {object} order 
+ * @returns {object}
+ */
+function serializeOrderPaymentResponse(order) {
+  if (!order) return null;
+
+  return {
+    id: (order._id || order.id).toString(),
+    orderNumber: order.orderNumber,
+    table: formatTable(order.table),
+    pricing: {
+      subtotal: order.pricing?.subtotal || 0,
+      discount: order.pricing?.discount || 0,
+      tax: order.pricing?.tax || 0,
+      serviceCharge: order.pricing?.serviceCharge || 0,
+      total: order.pricing?.total || 0,
+      currency: order.pricing?.currency || 'ETB'
+    },
+    payment: {
+      status: order.payment?.status,
+      method: order.payment?.method,
+      paidAt: order.payment?.paidAt || null,
+      proofUrl: order.payment?.proofUrl || null
+    },
+    currentStepKey: order.currentStepKey,
+    systemState: order.systemState,
+    updatedAt: order.updatedAt
+  };
+}
+
 module.exports = {
   serializeOrderForCustomer,
   serializeOrderForEmployee,
-  serializeOrderRealtimeSummary
+  serializeOrderRealtimeSummary,
+  serializeOrderPaymentResponse
 };

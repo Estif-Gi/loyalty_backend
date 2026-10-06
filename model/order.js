@@ -152,7 +152,8 @@ const paymentTrackingSchema = new Schema(
       default: PAYMENT_METHODS.CASH,
       required: true
     },
-    paidAt: { type: Date, default: null }
+    paidAt: { type: Date, default: null },
+    proofUrl: { type: String, default: null, trim: true }
   },
   { _id: false }
 );

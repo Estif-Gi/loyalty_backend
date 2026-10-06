@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-require("dotenv").config({ path: path.join(__dirname, '.env') });
+require("dotenv").config({ path: path.join(__dirname, '.env'), override: true });
 const { validateEncryptionConfig } = require('./utils/crypto');
 validateEncryptionConfig();
 const { setIo } = require('./sockets/ioInstance');
@@ -102,14 +102,39 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5001;
 
-if (require.main === module) {
-  mongoose
-    .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@loyaltyapp.uno2z8g.mongodb.net/?appName=loyaltyApp`)
-    .then(() => {
+async function connectWithRetry(retries = 5, delayMs = 3000) {
+  const encodedPassword = encodeURIComponent(process.env.DB_PASSWORD || '');
+  const mongoUri = `mongodb+srv://${process.env.DB_USER}:${encodedPassword}@loyaltyapp.uno2z8g.mongodb.net/?appName=loyaltyApp`;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔌 Connecting to MongoDB Atlas (attempt ${attempt}/${retries})...`);
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000
+      });
       console.log("**** Connected to MongoDB ****");
       server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-    })
-    .catch((err) => console.log("❌ Failed to connect to MongoDB:", err));
+      return;
+    } catch (err) {
+      console.error(`❌ Failed to connect to MongoDB (attempt ${attempt}/${retries}):`, err.message);
+      if (err.errorLabelSet) {
+        console.error("   Error labels:", Array.from(err.errorLabelSet).join(', '));
+      }
+
+      if (attempt === retries) {
+        console.error("🔥 All connection attempts exhausted. Please check your network and MongoDB Atlas IP access list.");
+        process.exit(1);
+      }
+
+      console.log(`⏳ Retrying in ${delayMs / 1000}s...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
+if (require.main === module) {
+  connectWithRetry();
 }
 
 app.server = server;

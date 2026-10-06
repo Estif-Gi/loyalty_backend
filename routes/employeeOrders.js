@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const employeeOrderController = require('../controllers/employeeOrderController');
 const { verifyToken } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 // All queue/transitions operations require token verification
 router.get(
@@ -33,6 +34,20 @@ router.post(
   '/:orderId/cancel',
   verifyToken,
   employeeOrderController.cancelOrder
+);
+
+router.patch(
+  '/:orderId/payment',
+  verifyToken,
+  upload.handlePaymentProofUpload,
+  employeeOrderController.updateOrderPayment
+);
+
+router.post(
+  '/:orderId/pay',
+  verifyToken,
+  upload.handlePaymentProofUpload,
+  employeeOrderController.updateOrderPayment
 );
 
 module.exports = router;
