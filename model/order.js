@@ -207,6 +207,12 @@ const orderSchema = new Schema(
       required: true,
       index: true
     },
+    diningCheck: {
+      type: Schema.Types.ObjectId,
+      ref: 'DiningCheck',
+      required: true,
+      index: true
+    },
     items: {
       type: [orderItemSchema],
       required: true,
@@ -243,10 +249,6 @@ const orderSchema = new Schema(
       type: serviceTrackingSchema,
       default: () => ({})
     },
-    payment: {
-      type: paymentTrackingSchema,
-      default: () => ({})
-    },
     loyalty: {
       type: loyaltyTrackingSchema,
       default: () => ({})
@@ -274,6 +276,49 @@ const orderSchema = new Schema(
   }
 );
 
+// Fallback pre-validate hook for test fixtures or internal creations without explicit diningCheck or workflow
+orderSchema.pre('validate', async function() {
+  if (!this.workflow) {
+    this.workflow = {
+      version: 1,
+      steps: [
+        { key: 'placed', label: 'Placed', systemState: 'OPEN', order: 1, enabled: true, required: true },
+        { key: 'served', label: 'Served', systemState: 'IN_PROGRESS', order: 2, enabled: true, required: false },
+        { key: 'completed', label: 'Completed', systemState: 'COMPLETED', order: 3, enabled: true, required: true }
+      ]
+    };
+  }
+  if (!this.currentStepKey) {
+    this.currentStepKey = 'placed';
+  }
+  if (!this.systemState) {
+    this.systemState = 'OPEN';
+  }
+  if (!this.diningCheck && this.orderSession) {
+    const DiningCheck = mongoose.model('DiningCheck');
+    let check = await DiningCheck.findOne({ orderSession: this.orderSession });
+    if (!check) {
+      check = await DiningCheck.create({
+        restaurant: this.restaurant,
+        customer: this.customer,
+        table: this.table,
+        orderSession: this.orderSession,
+        customerSnapshot: { name: '', phone: '' },
+        tableSnapshot: { name: '', code: '' },
+        totals: {
+          subtotal: this.pricing?.subtotal || 0,
+          discount: this.pricing?.discount || 0,
+          tax: this.pricing?.tax || 0,
+          serviceCharge: this.pricing?.serviceCharge || 0,
+          total: this.pricing?.total || 0,
+          currency: this.pricing?.currency || 'ETB'
+        }
+      });
+    }
+    this.diningCheck = check._id;
+  }
+});
+
 // Indexes
 orderSchema.index({ restaurant: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ idempotencyKey: 1 }, { unique: true });
@@ -281,5 +326,6 @@ orderSchema.index({ restaurant: 1, systemState: 1, createdAt: 1 });
 orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ customer: 1, systemState: 1, createdAt: -1 });
 orderSchema.index({ 'service.waiter': 1, systemState: 1 });
+orderSchema.index({ diningCheck: 1, createdAt: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

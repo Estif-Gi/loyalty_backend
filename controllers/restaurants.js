@@ -10,6 +10,7 @@ const { getRestaurantAndLimits } = require('../utils/billingLimits');
 const { validateWorkflow, WORKFLOW_DEFINITIONS } = require('../utils/workflow');
 const { validateEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
 const { normalizeToOklch, DEFAULT_OKLCH_THEME } = require('../utils/colorUtils');
+const { isUserOnline } = require('../sockets/socketManager');
 
 exports.createRestaurant = async (req, res) => {
     const { name, phone, location, themeColor } = req.body;
@@ -311,6 +312,11 @@ exports.employeeLogin = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        const now = new Date();
+        employee.lastLoginAt = now;
+        employee.lastSeenAt = now;
+        await employee.save();
+
         const payload = { id: employee._id, role: 'employee' };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
 
@@ -321,7 +327,10 @@ exports.employeeLogin = async (req, res) => {
                 name: employee.name, 
                 restaurant: employee.restaurant,
                 role: employee.role,
-                isActive: employee.isActive
+                isActive: employee.isActive,
+                lastLoginAt: employee.lastLoginAt,
+                lastSeenAt: employee.lastSeenAt,
+                isOnline: isUserOnline(employee._id)
             } 
         });
     } catch (error) {

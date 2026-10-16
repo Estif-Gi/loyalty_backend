@@ -200,3 +200,39 @@ exports.resetOwnerPassword = async (req, res) => {
     });
   }
 };
+
+exports.getUsers = async (req, res) => {
+  try {
+    const { role, search, page, limit } = req.query;
+    const result = await adminService.listUsers({ role, search, page, limit });
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      error: error.errorCode || 'SERVER_ERROR',
+      message: error.message || 'Failed to list users.'
+    });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await adminService.getUserDetails(id);
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      error: error.errorCode || 'SERVER_ERROR',
+      message: error.message || 'Failed to retrieve user details.'
+    });
+  }
+};

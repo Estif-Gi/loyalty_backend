@@ -6,6 +6,7 @@ const LoyaltyProgram = require('../model/loyalty_program');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getIo } = require('../sockets/ioInstance');
+const { isUserOnline } = require('../sockets/socketManager');
 const { getLimitsForTier } = require('../utils/billingLimits');
 const { validateEthiopianPhone, normalizeEthiopianPhone, ETHIOPIAN_PHONE_ERROR_MESSAGE } = require('../utils/phoneValidation');
 
@@ -99,10 +100,41 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        const now = new Date();
+        user.lastLoginAt = now;
+        user.lastSeenAt = now;
+        await user.save();
+
         const payload = { id: user._id, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ token, user: { id: user._id, name: user.name, role: user.role, loyalTo: user.loyalTo.map(l => ({ resID: l.resID, resName: l.resName, programID: l.programID, stamps: l.stamps })) } });
+        const userData = {
+            id: user._id,
+            name: user.name,
+            role: user.role,
+            lastLoginAt: user.lastLoginAt,
+            lastSeenAt: user.lastSeenAt,
+            isOnline: isUserOnline(user._id),
+            loyalTo: user.loyalTo.map(l => ({ resID: l.resID, resName: l.resName, programID: l.programID, stamps: l.stamps }))
+        };
+
+        if (user.role === 'owner') {
+            const restaurant = await Restaurant.findOne({ owner: user._id });
+            if (restaurant) {
+                userData.restaurantId = restaurant._id;
+                userData.billingStatus = restaurant.billingStatus || 'free';
+                userData.billingUpdatedAt = restaurant.billingUpdatedAt || null;
+            } else {
+                userData.restaurantId = null;
+                userData.billingStatus = 'free';
+                userData.billingUpdatedAt = null;
+            }
+        }
+
+        res.json({
+            token,
+            user: userData
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -123,7 +155,10 @@ exports.getProfile = async (req, res) => {
                 name: employee.name,
                 restaurantId: employee.restaurant,
                 role: employee.role,
-                isActive: employee.isActive
+                isActive: employee.isActive,
+                lastLoginAt: employee.lastLoginAt || null,
+                lastSeenAt: employee.lastSeenAt || null,
+                isOnline: isUserOnline(employee._id)
             });
         }
 
@@ -136,8 +171,18 @@ exports.getProfile = async (req, res) => {
             const restaurant = await Restaurant.findOne({ owner: req.user.id });
             if (restaurant) {
                 user.restaurantId = restaurant._id;
+                user.billingStatus = restaurant.billingStatus || 'free';
+                user.billingUpdatedAt = restaurant.billingUpdatedAt || null;
+            } else {
+                user.restaurantId = null;
+                user.billingStatus = 'free';
+                user.billingUpdatedAt = null;
             }
         }
+
+        user.lastLoginAt = user.lastLoginAt || null;
+        user.lastSeenAt = user.lastSeenAt || null;
+        user.isOnline = isUserOnline(user._id);
 
         res.json(user);
     } catch (error) {
@@ -276,8 +321,14 @@ exports.addStamps = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find().select('-password');
-        res.json(users);
+        const users = await User.find().select('-password').lean();
+        const usersWithPresence = users.map(user => ({
+            ...user,
+            lastLoginAt: user.lastLoginAt || null,
+            lastSeenAt: user.lastSeenAt || null,
+            isOnline: isUserOnline(user._id)
+        }));
+        res.json(usersWithPresence);
     } catch (error) {
         console.error("🔥 Error in getAllUsers:", error);
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -286,11 +337,19 @@ exports.getAllUsers = async (req, res) => {
 
 exports.getUserById = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select('-password');
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid user ID format' });
+        }
+        const user = await User.findById(req.params.id).select('-password').lean();
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user);
+        res.json({
+            ...user,
+            lastLoginAt: user.lastLoginAt || null,
+            lastSeenAt: user.lastSeenAt || null,
+            isOnline: isUserOnline(user._id)
+        });
     } catch (error) {
         console.error("🔥 Error in getUserById:", error);
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -392,6 +451,9 @@ exports.createUserByAdmin = async (req, res) => {
                 name: newUser.name,
                 phone: newUser.phone,
                 role: newUser.role,
+                lastLoginAt: newUser.lastLoginAt || null,
+                lastSeenAt: newUser.lastSeenAt || null,
+                isOnline: false,
                 createdAt: newUser.createdAt
             }
         });
@@ -444,6 +506,9 @@ exports.updateUserRole = async (req, res) => {
                 name: user.name,
                 phone: user.phone,
                 role: user.role,
+                lastLoginAt: user.lastLoginAt || null,
+                lastSeenAt: user.lastSeenAt || null,
+                isOnline: isUserOnline(user._id),
                 updatedAt: user.updatedAt
             }
         });
@@ -464,7 +529,15 @@ exports.getProfileSocket = async (userId) => {
     if (user) {
         if (user.role === 'owner') {
             const restaurant = await Restaurant.findOne({ owner: userId });
-            if (restaurant) user.restaurantId = restaurant._id;
+            if (restaurant) {
+                user.restaurantId = restaurant._id;
+                user.billingStatus = restaurant.billingStatus || 'free';
+                user.billingUpdatedAt = restaurant.billingUpdatedAt || null;
+            } else {
+                user.restaurantId = null;
+                user.billingStatus = 'free';
+                user.billingUpdatedAt = null;
+            }
         }
         return user;
     }

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { getProfileSocket } = require('../controllers/users');
-const { registerUser, removeUser } = require('./socketManager');
+const { registerUser, removeUser, isUserOnline } = require('./socketManager');
+const { getIo } = require('./ioInstance');
+const User = require('../model/users');
 const Employee = require('../model/employee');
 const Restaurant = require('../model/restaurant');
 const Order = require('../model/order');
@@ -30,6 +32,21 @@ async function registerUserSockets(socket) {
 
   // Register socket in tracker
   registerUser(userId, socket.id);
+
+  // Update lastSeenAt and broadcast presence
+  const connectTime = new Date();
+  User.findByIdAndUpdate(userId, { lastSeenAt: connectTime }).catch(() => {});
+  if (userRole === 'employee') {
+    Employee.findByIdAndUpdate(userId, { lastSeenAt: connectTime }).catch(() => {});
+  }
+  const io = getIo();
+  if (io) {
+    io.emit('userPresence', {
+      userId: userId.toString(),
+      isOnline: true,
+      lastSeenAt: connectTime
+    });
+  }
 
   // Register event listeners immediately (synchronously) so no events are dropped during async initialization
   socket.on('joinRestaurant', async (payload, callback) => {
@@ -144,9 +161,48 @@ async function registerUserSockets(socket) {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('heartbeat', async (callback) => {
+    const activityTime = new Date();
+    User.findByIdAndUpdate(userId, { lastSeenAt: activityTime }).catch(() => {});
+    if (userRole === 'employee') {
+      Employee.findByIdAndUpdate(userId, { lastSeenAt: activityTime }).catch(() => {});
+    }
+    if (typeof callback === 'function') callback({ success: true, timestamp: activityTime });
+  });
+
+  socket.on('checkUserOnline', (payload, callback) => {
+    const targetUserId = typeof payload === 'object' ? payload?.userId : payload;
+    const online = isUserOnline(targetUserId);
+    if (typeof callback === 'function') {
+      callback({ success: true, userId: targetUserId, isOnline: online });
+    }
+  });
+
+  socket.on('disconnect', async () => {
     removeUser(userId, socket.id);
-    console.log(`❌ Socket disconnected: ${socket.id}`);
+    const stillOnline = isUserOnline(userId);
+    const disconnectTime = new Date();
+
+    try {
+      await User.findByIdAndUpdate(userId, { lastSeenAt: disconnectTime });
+      if (userRole === 'employee') {
+        await Employee.findByIdAndUpdate(userId, { lastSeenAt: disconnectTime });
+      }
+    } catch (err) {
+      console.error(`Failed to update lastSeenAt on disconnect for user ${userId}:`, err.message);
+    }
+
+    if (!stillOnline) {
+      const ioInstance = getIo();
+      if (ioInstance) {
+        ioInstance.emit('userPresence', {
+          userId: userId.toString(),
+          isOnline: false,
+          lastSeenAt: disconnectTime
+        });
+      }
+    }
+    console.log(`❌ Socket disconnected: ${socket.id} (user ${userId} online: ${stillOnline})`);
   });
 
   // Async server-derived identity room assignments

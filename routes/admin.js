@@ -23,4 +23,8 @@ router.patch('/restaurants/:id/billing', adminController.updateRestaurantBilling
 // 4. Owner management
 router.patch('/owners/:ownerId/password', adminController.resetOwnerPassword);
 
+// 5. User management
+router.get('/users', adminController.getUsers);
+router.get('/users/:id', adminController.getUserById);
+
 module.exports = router;

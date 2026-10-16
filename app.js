@@ -92,6 +92,8 @@ app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/order-sessions", require("./routes/orderSessions"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/employee/orders", require("./routes/employeeOrders"));
+app.use("/api/employee/dining-checks", require("./routes/employeeDiningChecks"));
+app.use("/api/owner/dining-checks", require("./routes/ownerDiningChecks"));
 app.use("/api/admin", require("./routes/admin"));
 
 // 7. Global error handler — must be last

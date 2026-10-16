@@ -4,9 +4,12 @@ const RestaurantTable = require('../model/restaurantTable');
 const RestaurantQrCode = require('../model/restaurantQrCode');
 const OrderSession = require('../model/orderSession');
 const Employee = require('../model/employee');
+const User = require('../model/users');
 const { validateOrderSessionForOrdering } = require('./orderSessionService');
 const { verifyRestaurantPresence } = require('./geofenceService');
 const { verifyAndCalculatePricing } = require('./orderPricingService');
+const { findOrCreateDiningCheck, recalculateDiningCheckTotals } = require('./diningCheckService');
+const { emitDiningCheckUpdated, emitDiningChecksInvalidated } = require('./orderRealtimeService');
 const { ORDER_ERROR_CODES, SYSTEM_STATES } = require('../constants/orders');
 
 /**
@@ -71,7 +74,25 @@ async function createOrder({
 
   const { session, restaurant, table } = sessionCheck;
 
-  // 3. Resolve and validate Waiter Assignment (Sections 9, 10, 11)
+  // 3. Resolve Customer & DiningCheck for OrderSession
+  const customerDoc = await User.findById(customerId).select('name phone');
+  const diningCheck = await findOrCreateDiningCheck({
+    session,
+    restaurant,
+    table,
+    customer: customerDoc || { _id: customerId }
+  });
+
+  // 4. Verify DiningCheck is NOT already paid (Section 14)
+  if (diningCheck.payment && diningCheck.payment.isPaid) {
+    throw {
+      status: 409,
+      error: ORDER_ERROR_CODES.DINING_CHECK_ALREADY_PAID,
+      message: 'This bill has already been paid. Additional orders cannot be added to it.'
+    };
+  }
+
+  // 5. Resolve and validate Waiter Assignment (Sections 9, 10, 11)
   if (!table.assignedWaiter) {
     throw {
       status: 409,
@@ -169,6 +190,7 @@ async function createOrder({
     restaurant: restaurant._id,
     table: table._id,
     orderSession: session._id,
+    diningCheck: diningCheck._id,
     items: pricingResult.items,
     pricing: pricingResult.pricing,
     workflow: workflowSnapshot,
@@ -185,12 +207,18 @@ async function createOrder({
     timeline
   });
 
-  // 7. Save order with atomic duplicate orderNumber collision retry up to 5 times (Section 4)
+  // 8. Save order with atomic duplicate orderNumber collision retry up to 5 times (Section 4)
   let attempts = 0;
   while (attempts < 5) {
     try {
       order.orderNumber = await getNextOrderNumber(restaurant._id);
       const savedOrder = await order.save();
+
+      // Recalculate DiningCheck totals and emit realtime events (Sections 16, 18, 39)
+      const updatedCheck = await recalculateDiningCheckTotals(diningCheck._id);
+      emitDiningCheckUpdated(updatedCheck);
+      emitDiningChecksInvalidated(restaurant._id);
+
       return {
         order: savedOrder,
         created: true

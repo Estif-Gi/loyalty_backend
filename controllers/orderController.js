@@ -28,17 +28,19 @@ exports.placeOrder = async (req, res) => {
       idempotencyKey
     });
 
+    const populatedOrder = await Order.findById(order._id)
+      .populate('table', 'name code')
+      .populate('service.waiter', 'name role')
+      .populate('diningCheck');
+
     if (created) {
-      const populatedOrder = await Order.findById(order._id)
-        .populate('table', 'name code')
-        .populate('service.waiter', 'name role');
       emitOrderCreated(populatedOrder || order);
     }
 
     res.status(201).json({
       success: true,
       data: {
-        order: serializeOrderForCustomer(order)
+        order: serializeOrderForCustomer(populatedOrder || order)
       }
     });
   } catch (error) {
@@ -151,6 +153,7 @@ exports.getOrderHistory = async (req, res) => {
         .limit(limit)
         .populate('restaurant', 'name location logoURL phone')
         .populate('table', 'name code')
+        .populate('diningCheck')
     ]);
 
     const totalPages = Math.ceil(total / limit) || 1;
@@ -203,7 +206,8 @@ exports.getMyOrders = async (req, res) => {
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
       .populate('restaurant', 'name location logoURL phone')
-      .populate('table', 'name code');
+      .populate('table', 'name code')
+      .populate('diningCheck');
 
     res.json({
       success: true,
@@ -243,7 +247,8 @@ exports.getCustomerOrder = async (req, res) => {
 
     const order = await Order.findById(orderId)
       .populate('restaurant', 'name location logoURL phone')
-      .populate('table', 'name code');
+      .populate('table', 'name code')
+      .populate('diningCheck');
 
     if (!order) {
       return res.status(404).json({

@@ -168,6 +168,7 @@ exports.getRestaurantOrderHistory = async (req, res) => {
         .populate('table', 'name code')
         .populate('customer', 'name phone')
         .populate('service.waiter', 'name role')
+        .populate('diningCheck')
     ]);
 
     const totalPages = Math.ceil(total / limit) || 1;

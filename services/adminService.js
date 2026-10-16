@@ -14,6 +14,7 @@ const {
   ETHIOPIAN_PHONE_ERROR_MESSAGE
 } = require('../utils/phoneValidation');
 const { normalizeToOklch, DEFAULT_OKLCH_THEME } = require('../utils/colorUtils');
+const { isUserOnline } = require('../sockets/socketManager');
 
 const ALLOWED_TIERS = ['free', 'loyal', 'trustworthy', 'faithful'];
 
@@ -216,6 +217,9 @@ exports.createRestaurantWithOwner = async ({ ownerData, restaurantData, adminId,
       name: createdUser.name,
       phone: createdUser.phone,
       role: createdUser.role,
+      lastLoginAt: createdUser.lastLoginAt || null,
+      lastSeenAt: createdUser.lastSeenAt || null,
+      isOnline: isUserOnline(createdUser._id),
       createdAt: createdUser.createdAt
     }
   };
@@ -319,7 +323,7 @@ exports.getRestaurantDetails = async (restaurantId) => {
   }
 
   const restaurant = await Restaurant.findById(restaurantId)
-    .populate('owner', 'name phone createdAt')
+    .populate('owner', 'name phone createdAt lastLoginAt lastSeenAt')
     .populate('billingUpdatedBy', 'name phone');
 
   if (!restaurant) {
@@ -376,7 +380,10 @@ exports.getRestaurantDetails = async (restaurantId) => {
           id: restaurant.owner._id,
           name: restaurant.owner.name,
           phone: restaurant.owner.phone,
-          createdAt: restaurant.owner.createdAt
+          createdAt: restaurant.owner.createdAt,
+          lastLoginAt: restaurant.owner.lastLoginAt || null,
+          lastSeenAt: restaurant.owner.lastSeenAt || null,
+          isOnline: isUserOnline(restaurant.owner._id)
         }
       : null,
     billing: {
@@ -676,5 +683,82 @@ exports.resetOwnerPassword = async ({ ownerId, newPassword, adminId, reqMeta = {
   return {
     ownerId: user._id,
     message: 'Owner password has been reset successfully.'
+  };
+};
+
+/**
+ * List users with presence and login information for admin
+ */
+exports.listUsers = async ({ role = '', search = '', page = 1, limit = 50 } = {}) => {
+  const query = {};
+  if (role && ['customer', 'owner', 'admin'].includes(role)) {
+    query.role = role;
+  }
+  if (search && typeof search === 'string' && search.trim()) {
+    const s = search.trim();
+    query.$or = [
+      { name: { $regex: s, $options: 'i' } },
+      { phone: { $regex: s, $options: 'i' } }
+    ];
+  }
+
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, Math.min(200, parseInt(limit, 10) || 50));
+  const skip = (pageNum - 1) * limitNum;
+
+  const [users, total] = await Promise.all([
+    User.find(query)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean(),
+    User.countDocuments(query)
+  ]);
+
+  const items = users.map(user => ({
+    ...user,
+    id: user._id,
+    lastLoginAt: user.lastLoginAt || null,
+    lastSeenAt: user.lastSeenAt || null,
+    isOnline: isUserOnline(user._id)
+  }));
+
+  return {
+    users: items,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      pages: Math.ceil(total / limitNum) || 1
+    }
+  };
+};
+
+/**
+ * Get user details with presence and login information for admin
+ */
+exports.getUserDetails = async (userId) => {
+  if (!mongoose.isValidObjectId(userId)) {
+    const error = new Error('Invalid user ID format.');
+    error.statusCode = 400;
+    error.errorCode = 'INVALID_USER_ID';
+    throw error;
+  }
+
+  const user = await User.findById(userId).select('-password').lean();
+  if (!user) {
+    const error = new Error('User not found.');
+    error.statusCode = 404;
+    error.errorCode = 'USER_NOT_FOUND';
+    throw error;
+  }
+
+  return {
+    ...user,
+    id: user._id,
+    lastLoginAt: user.lastLoginAt || null,
+    lastSeenAt: user.lastSeenAt || null,
+    isOnline: isUserOnline(user._id)
   };
 };

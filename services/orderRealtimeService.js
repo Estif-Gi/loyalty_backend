@@ -253,9 +253,146 @@ function emitOrderCancelled(order, metadata = {}) {
   }
 }
 
+/**
+ * Emits realtime events when a dining check's totals or content updates.
+ * 
+ * 1. Emits 'check:updated' to customer room: customer:<customerId>
+ * 2. Emits 'checks:invalidate' to restaurant room: restaurant:<restaurantId> and orders:<restaurantId>
+ * 
+ * @param {object} check - DiningCheck document or serialized object
+ */
+function emitDiningCheckUpdated(check) {
+  try {
+    const io = getIo();
+    if (!io || !check) return;
+
+    const checkId = toIdString(check);
+    const customerId = toIdString(check.customer);
+    const restaurantId = toIdString(check.restaurant);
+
+    const checkData = {
+      checkId,
+      orderSessionId: toIdString(check.orderSession),
+      totals: {
+        subtotal: check.totals?.subtotal || 0,
+        discount: check.totals?.discount || 0,
+        tax: check.totals?.tax || 0,
+        serviceCharge: check.totals?.serviceCharge || 0,
+        total: check.totals?.total || 0,
+        currency: check.totals?.currency || 'ETB'
+      },
+      payment: {
+        isPaid: Boolean(check.payment?.isPaid),
+        method: check.payment?.method || null,
+        paidAt: check.payment?.paidAt ? new Date(check.payment.paidAt).toISOString() : null
+      },
+      updatedAt: (check.updatedAt || new Date()).toISOString()
+    };
+
+    if (customerId) {
+      const customerPayload = createEventEnvelope('check:updated', checkData);
+      io.to(`customer:${customerId}`).emit('check:updated', customerPayload);
+    }
+
+    if (restaurantId) {
+      const invalidatePayload = createEventEnvelope('checks:invalidate', {
+        checkId,
+        reason: 'check_updated',
+        check: checkData
+      });
+      io.to(`restaurant:${restaurantId}`).emit('checks:invalidate', invalidatePayload);
+      io.to(`orders:${restaurantId}`).emit('checks:invalidate', invalidatePayload);
+    }
+  } catch (err) {
+    console.error('Realtime check:updated event failed:', {
+      checkId: toIdString(check),
+      error: err.message
+    });
+  }
+}
+
+/**
+ * Emits realtime events when a dining check payment is completed.
+ * 
+ * 1. Emits 'check:payment-updated' to customer room: customer:<customerId>
+ * 2. Emits 'check:payment-updated' to restaurant room: restaurant:<restaurantId> and orders:<restaurantId>
+ * 3. Emits 'checks:invalidate' to restaurant room: restaurant:<restaurantId> and orders:<restaurantId>
+ * 
+ * @param {object} check - DiningCheck document
+ */
+function emitDiningCheckPaymentUpdated(check) {
+  try {
+    const io = getIo();
+    if (!io || !check) return;
+
+    const checkId = toIdString(check);
+    const customerId = toIdString(check.customer);
+    const restaurantId = toIdString(check.restaurant);
+
+    const paymentData = {
+      checkId,
+      isPaid: Boolean(check.payment?.isPaid),
+      method: check.payment?.method || null,
+      total: check.totals?.total || 0,
+      currency: check.totals?.currency || 'ETB',
+      paidAt: check.payment?.paidAt ? new Date(check.payment.paidAt).toISOString() : new Date().toISOString()
+    };
+
+    const paymentPayload = createEventEnvelope('check:payment-updated', paymentData);
+
+    if (customerId) {
+      io.to(`customer:${customerId}`).emit('check:payment-updated', paymentPayload);
+    }
+
+    if (restaurantId) {
+      io.to(`restaurant:${restaurantId}`).emit('check:payment-updated', paymentPayload);
+      io.to(`orders:${restaurantId}`).emit('check:payment-updated', paymentPayload);
+
+      const invalidatePayload = createEventEnvelope('checks:invalidate', {
+        checkId,
+        reason: 'payment_settled',
+        check: paymentData
+      });
+      io.to(`restaurant:${restaurantId}`).emit('checks:invalidate', invalidatePayload);
+      io.to(`orders:${restaurantId}`).emit('checks:invalidate', invalidatePayload);
+    }
+  } catch (err) {
+    console.error('Realtime check:payment-updated event failed:', {
+      checkId: toIdString(check),
+      error: err.message
+    });
+  }
+}
+
+/**
+ * Emits 'checks:invalidate' event to restaurant rooms.
+ * 
+ * @param {string|mongoose.Types.ObjectId} restaurantId
+ * @param {object} [metadata]
+ */
+function emitDiningChecksInvalidated(restaurantId, metadata = {}) {
+  try {
+    const io = getIo();
+    if (!io || !restaurantId) return;
+
+    const rId = toIdString(restaurantId);
+    const invalidatePayload = createEventEnvelope('checks:invalidate', {
+      restaurantId: rId,
+      ...metadata
+    });
+    io.to(`restaurant:${rId}`).emit('checks:invalidate', invalidatePayload);
+    io.to(`orders:${rId}`).emit('checks:invalidate', invalidatePayload);
+  } catch (err) {
+    console.error('Realtime checks:invalidate event failed:', err.message);
+  }
+}
+
 module.exports = {
   createEventEnvelope,
   emitOrderCreated,
   emitOrderUpdated,
-  emitOrderCancelled
+  emitOrderCancelled,
+  emitDiningCheckUpdated,
+  emitDiningCheckPaymentUpdated,
+  emitDiningChecksInvalidated
 };

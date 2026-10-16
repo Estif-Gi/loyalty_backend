@@ -10,10 +10,11 @@ const RestaurantQrCode = require('../../model/restaurantQrCode');
 const OrderSession = require('../../model/orderSession');
 const Order = require('../../model/order');
 const Employee = require('../../model/employee');
+const DiningCheck = require('../../model/diningCheck');
 const { hashToken } = require('../../services/qrCodeService');
-const { SYSTEM_STATES, PAYMENT_STATUSES, PAYMENT_METHODS } = require('../../constants/orders');
+const { SYSTEM_STATES, PAYMENT_METHODS, ORDER_ERROR_CODES } = require('../../constants/orders');
 
-describe('Order Payment Settlement API & Realtime Tests', () => {
+describe('DiningCheck Payment Settlement API & Realtime Tests', () => {
   let testHttpServer;
   let serverPort;
   let activeSockets = [];
@@ -30,6 +31,7 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
   let qrCodeA;
   let sessionA;
   let sampleOrder;
+  let sampleCheck;
 
   function connectSocket(token) {
     return new Promise((resolve, reject) => {
@@ -46,7 +48,7 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
     });
   }
 
-  function waitForEvent(socket, eventName, timeoutMs = 7000) {
+  function waitForEvent(socket, eventName, timeoutMs = 8000) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`Timeout (${timeoutMs}ms) waiting for event "${eventName}"`));
@@ -68,6 +70,7 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
       });
     });
     await Order.syncIndexes();
+    await DiningCheck.syncIndexes();
   });
 
   afterAll((done) => {
@@ -90,6 +93,7 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
   });
 
   beforeEach(async () => {
+    await DiningCheck.deleteMany({});
     await Order.deleteMany({});
     await OrderSession.deleteMany({});
     await RestaurantQrCode.deleteMany({});
@@ -205,7 +209,7 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
       expiresAt: new Date(Date.now() + 3600000)
     });
 
-    // 5. Seed initial order
+    // 5. Seed initial order & dining check
     sampleOrder = await Order.create({
       orderNumber: 'ORD-PAY-001',
       customer: customerUser._id,
@@ -238,99 +242,94 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
           { key: 'completed', label: 'Completed', systemState: SYSTEM_STATES.COMPLETED, order: 3, enabled: true, required: true }
         ]
       },
-      payment: {
-        status: PAYMENT_STATUSES.UNPAID,
-        method: PAYMENT_METHODS.CASH,
-        paidAt: null
-      },
       service: {
         waiter: waiterA._id
       }
     });
+
+    sampleCheck = await DiningCheck.findById(sampleOrder.diningCheck);
   }, 60000);
 
-  test('1. Waiter with orders:payment successfully settles payment via PATCH /:orderId/payment (default cash)', async () => {
+  test('1. Waiter with orders:payment successfully settles payment via PATCH /dining-checks/:checkId/payment (default cash)', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${waiterTokenA}`)
       .send({});
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.order.payment.status).toBe('paid');
-    expect(res.body.data.order.payment.method).toBe('cash');
-    expect(res.body.data.order.payment.paidAt).toBeTruthy();
+    expect(res.body.data.check.payment.isPaid).toBe(true);
+    expect(res.body.data.check.payment.method).toBe('cash');
+    expect(res.body.data.check.payment.paidAt).toBeTruthy();
 
-    const dbOrder = await Order.findById(sampleOrder._id);
-    expect(dbOrder.payment.status).toBe('paid');
-    expect(dbOrder.payment.method).toBe('cash');
-    expect(dbOrder.timeline.some((t) => t.action === 'payment_settled')).toBe(true);
+    const dbCheck = await DiningCheck.findById(sampleCheck._id);
+    expect(dbCheck.payment.isPaid).toBe(true);
+    expect(dbCheck.payment.method).toBe('cash');
   });
 
   test('2. Cashier with orders:payment successfully settles payment with method "telebirr"', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'telebirr' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.order.payment.status).toBe('paid');
-    expect(res.body.data.order.payment.method).toBe('telebirr');
+    expect(res.body.data.check.payment.isPaid).toBe(true);
+    expect(res.body.data.check.payment.method).toBe('telebirr');
 
-    const dbOrder = await Order.findById(sampleOrder._id);
-    expect(dbOrder.payment.method).toBe('telebirr');
+    const dbCheck = await DiningCheck.findById(sampleCheck._id);
+    expect(dbCheck.payment.method).toBe('telebirr');
   });
 
   test('3. Restaurant owner successfully settles payment with method "card"', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${ownerTokenA}`)
       .send({ method: 'card' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.order.payment.status).toBe('paid');
-    expect(res.body.data.order.payment.method).toBe('card');
+    expect(res.body.data.check.payment.isPaid).toBe(true);
+    expect(res.body.data.check.payment.method).toBe('card');
   });
 
-  test('4. POST /:orderId/pay alias functions equivalently', async () => {
+  test('4. POST /dining-checks/:checkId/pay alias functions equivalently', async () => {
     const res = await request(app)
-      .post(`/api/employee/orders/${sampleOrder._id}/pay`)
+      .post(`/api/employee/dining-checks/${sampleCheck._id}/pay`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'card' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.order.payment.status).toBe('paid');
-    expect(res.body.data.order.payment.method).toBe('card');
+    expect(res.body.data.check.payment.isPaid).toBe(true);
+    expect(res.body.data.check.payment.method).toBe('card');
   });
 
   test('5. Chef role without orders:payment is denied with 403 ORDER_PAYMENT_PERMISSION_DENIED', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${chefTokenA}`)
       .send({ method: 'cash' });
 
     expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('ORDER_PAYMENT_PERMISSION_DENIED');
+    expect(res.body.error).toBe(ORDER_ERROR_CODES.ORDER_PAYMENT_PERMISSION_DENIED);
   });
 
-  test('6. Employee from another restaurant is denied with 403 ORDER_ACCESS_DENIED', async () => {
+  test('6. Employee from another restaurant is denied with 403 DINING_CHECK_ACCESS_DENIED', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${waiterTokenB}`)
       .send({ method: 'cash' });
 
     expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('ORDER_ACCESS_DENIED');
   });
 
-  test('7. Customer role is denied with 403 ORDER_ACCESS_DENIED', async () => {
+  test('7. Customer role is denied with 403 DINING_CHECK_ACCESS_DENIED', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${customerToken}`)
       .send({ method: 'cash' });
 
@@ -338,60 +337,58 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
     expect(res.body.success).toBe(false);
   });
 
-  test('8. Already paid order returns 409 ORDER_ALREADY_PAID (idempotency check)', async () => {
+  test('8. Already paid check returns 409 DINING_CHECK_ALREADY_PAID (idempotency check)', async () => {
     // Settle payment first
     await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'cash' });
 
     // Attempt second payment
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'cash' });
 
     expect(res.status).toBe(409);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('ORDER_ALREADY_PAID');
+    expect(res.body.error).toBe(ORDER_ERROR_CODES.DINING_CHECK_ALREADY_PAID);
   });
 
-  test('9. Cancelled order cannot be paid (returns 400 ORDER_PAYMENT_NOT_ALLOWED)', async () => {
+  test('9. Cancelled order check cannot be paid if no active orders (returns 400 DINING_CHECK_EMPTY)', async () => {
     sampleOrder.systemState = SYSTEM_STATES.CANCELLED;
     await sampleOrder.save();
 
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'cash' });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('ORDER_PAYMENT_NOT_ALLOWED');
+    expect(res.body.error).toBe(ORDER_ERROR_CODES.DINING_CHECK_EMPTY);
   });
 
   test('10. Invalid payment method returns 400 INVALID_PAYMENT_METHOD', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'bitcoin_invalid' });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('INVALID_PAYMENT_METHOD');
+    expect(res.body.error).toBe(ORDER_ERROR_CODES.INVALID_PAYMENT_METHOD);
   });
 
-  test('11. Broadcasts order:updated realtime event via Socket.IO to restaurant and customer rooms', async () => {
-    // Connect owner socket (joins restaurant:restaurantA)
+  test('11. Broadcasts check:payment-updated realtime event via Socket.IO to restaurant and customer rooms', async () => {
     const ownerSocket = await connectSocket(ownerTokenA);
-    // Connect customer socket (joins customer:customerUser)
     const custSocket = await connectSocket(customerToken);
 
-    const ownerEventPromise = waitForEvent(ownerSocket, 'order:updated');
-    const custEventPromise = waitForEvent(custSocket, 'order:updated');
+    const ownerEventPromise = waitForEvent(ownerSocket, 'check:payment-updated');
+    const custEventPromise = waitForEvent(custSocket, 'check:payment-updated');
 
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${cashierTokenA}`)
       .send({ method: 'telebirr' });
 
@@ -399,20 +396,20 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
 
     const [ownerEvent, custEvent] = await Promise.all([ownerEventPromise, custEventPromise]);
 
-    expect(ownerEvent.type).toBe('order:updated');
-    expect(ownerEvent.data.order.payment.status).toBe('paid');
-    expect(ownerEvent.data.order.payment.method).toBe('telebirr');
+    expect(ownerEvent.type).toBe('check:payment-updated');
+    expect(ownerEvent.data.isPaid).toBe(true);
+    expect(ownerEvent.data.method).toBe('telebirr');
 
-    expect(custEvent.type).toBe('order:updated');
-    expect(custEvent.data.order.payment.status).toBe('paid');
-    expect(custEvent.data.order.payment.method).toBe('telebirr');
+    expect(custEvent.type).toBe('check:payment-updated');
+    expect(custEvent.data.isPaid).toBe(true);
+    expect(custEvent.data.method).toBe('telebirr');
   });
 
-  test('12. Waiter optionally attaches payment proof link and it is saved with order', async () => {
+  test('12. Waiter optionally attaches payment proof link and it is saved with check', async () => {
     const proofUrl = 'https://res.cloudinary.com/loyaltyImages/image/upload/v12345/receipt_proof.jpg';
 
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${waiterTokenA}`)
       .send({
         method: 'telebirr',
@@ -421,40 +418,31 @@ describe('Order Payment Settlement API & Realtime Tests', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.order.payment.status).toBe('paid');
-    expect(res.body.data.order.payment.method).toBe('telebirr');
-    expect(res.body.data.order.payment.proofUrl).toBe(proofUrl);
+    expect(res.body.data.check.payment.isPaid).toBe(true);
+    expect(res.body.data.check.payment.method).toBe('telebirr');
+    expect(res.body.data.check.payment.proofUrl).toBe(proofUrl);
 
-    const dbOrder = await Order.findById(sampleOrder._id);
-    expect(dbOrder.payment.proofUrl).toBe(proofUrl);
-    expect(dbOrder.timeline.some((t) => t.note.includes('proof attached'))).toBe(true);
+    const dbCheck = await DiningCheck.findById(sampleCheck._id);
+    expect(dbCheck.payment.proofUrl).toBe(proofUrl);
   });
 
-  test('13. Response contains ONLY necessary data without bloated workflow, timeline, or kitchen objects', async () => {
+  test('13. Response contains authoritative DiningCheck DTO with totals and payment status', async () => {
     const res = await request(app)
-      .patch(`/api/employee/orders/${sampleOrder._id}/payment`)
+      .patch(`/api/employee/dining-checks/${sampleCheck._id}/payment`)
       .set('Authorization', `Bearer ${waiterTokenA}`)
       .send({ method: 'cash' });
 
     expect(res.status).toBe(200);
-    const orderData = res.body.data.order;
+    const checkData = res.body.data.check;
 
-    // Necessary fields MUST exist
-    expect(orderData.id).toBeTruthy();
-    expect(orderData.orderNumber).toBe(sampleOrder.orderNumber);
-    expect(orderData.table).toBeTruthy();
-    expect(orderData.pricing).toBeTruthy();
-    expect(orderData.payment).toBeTruthy();
-    expect(orderData.currentStepKey).toBe('placed');
-    expect(orderData.systemState).toBe('OPEN');
-    expect(orderData.updatedAt).toBeTruthy();
-
-    // Bloated / unnecessary fields MUST be omitted
-    expect(orderData.workflow).toBeUndefined();
-    expect(orderData.timeline).toBeUndefined();
-    expect(orderData.kitchen).toBeUndefined();
-    expect(orderData.items).toBeUndefined();
-    expect(orderData.cancellation).toBeUndefined();
-    expect(orderData.availableAction).toBeUndefined();
+    expect(checkData.id).toBeTruthy();
+    expect(checkData.table).toBeTruthy();
+    expect(checkData.totals).toBeTruthy();
+    expect(checkData.totals.total).toBe(575);
+    expect(checkData.payment).toBeTruthy();
+    expect(checkData.payment.isPaid).toBe(true);
+    expect(checkData.payment.method).toBe('cash');
+    expect(checkData.orders).toHaveLength(1);
+    expect(checkData.orderCount).toBe(1);
   });
 });

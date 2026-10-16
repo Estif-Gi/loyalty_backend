@@ -16,7 +16,9 @@ const employeeSchema = new Schema({
     isActive: {
         type: Boolean,
         default: true
-    }
+    },
+    lastLoginAt: { type: Date, default: null },
+    lastSeenAt: { type: Date, default: null }
 }, { timestamps: true });
 
 // Compound index for employee lookups

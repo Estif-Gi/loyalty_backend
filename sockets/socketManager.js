@@ -24,4 +24,34 @@ function getSocketId(userId) {
   return sockets.values().next().value;
 }
 
-module.exports = { registerUser, removeUser, getSocketId };
+function isUserOnline(userId) {
+  if (!userId) return false;
+  const key = userId.toString();
+  const sockets = userSockets.get(key);
+  return Boolean(sockets && sockets.size > 0);
+}
+
+function getUserSocketCount(userId) {
+  if (!userId) return 0;
+  const sockets = userSockets.get(userId.toString());
+  return sockets ? sockets.size : 0;
+}
+
+function getOnlineUserIds() {
+  return Array.from(userSockets.keys());
+}
+
+function clearAllSockets() {
+  userSockets.clear();
+}
+
+module.exports = {
+  registerUser,
+  removeUser,
+  getSocketId,
+  isUserOnline,
+  isOnline: isUserOnline,
+  getUserSocketCount,
+  getOnlineUserIds,
+  clearAllSockets
+};

@@ -36,18 +36,21 @@ router.post(
   employeeOrderController.cancelOrder
 );
 
-router.patch(
-  '/:orderId/payment',
-  verifyToken,
-  upload.handlePaymentProofUpload,
-  employeeOrderController.updateOrderPayment
-);
+// Per-order payment is deprecated in favor of DiningCheck payment: PATCH /api/employee/dining-checks/:checkId/payment (Section 21)
+router.all('/:orderId/payment', (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'ORDER_PAYMENT_DEPRECATED',
+    message: 'Payment per individual order has been deprecated. Use DiningCheck payment endpoint: PATCH /api/employee/dining-checks/:checkId/payment'
+  });
+});
 
-router.post(
-  '/:orderId/pay',
-  verifyToken,
-  upload.handlePaymentProofUpload,
-  employeeOrderController.updateOrderPayment
-);
+router.all('/:orderId/pay', (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'ORDER_PAYMENT_DEPRECATED',
+    message: 'Payment per individual order has been deprecated. Use DiningCheck payment endpoint: PATCH /api/employee/dining-checks/:checkId/payment'
+  });
+});
 
 module.exports = router;

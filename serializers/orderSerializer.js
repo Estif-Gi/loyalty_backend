@@ -50,9 +50,12 @@ function serializeOrderForCustomer(order, options = {}) {
   if (!order) return null;
   const { includeTimeline = true } = options;
 
+  const diningCheckId = (order.diningCheck?._id || order.diningCheck)?.toString() || null;
+
   const result = {
     id: order._id || order.id,
     orderNumber: order.orderNumber,
+    diningCheckId,
     restaurant: formatRestaurant(order.restaurant),
     table: formatTable(order.table),
     items: (order.items || []).map((item) => ({
@@ -81,12 +84,6 @@ function serializeOrderForCustomer(order, options = {}) {
       assignmentSource: order.service?.assignmentSource || 'table',
       servedAt: order.service?.servedAt || null
     },
-    payment: {
-      status: order.payment?.status,
-      method: order.payment?.method,
-      paidAt: order.payment?.paidAt || null,
-      proofUrl: order.payment?.proofUrl || null
-    },
     cancellation: order.cancellation?.cancelledAt
       ? {
           reason: order.cancellation.reason,
@@ -96,6 +93,15 @@ function serializeOrderForCustomer(order, options = {}) {
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   };
+
+  if (order.diningCheck && typeof order.diningCheck === 'object' && order.diningCheck._id) {
+    result.diningCheck = {
+      id: order.diningCheck._id.toString(),
+      total: order.diningCheck.totals?.total ?? 0,
+      currency: order.diningCheck.totals?.currency || 'ETB',
+      isPaid: Boolean(order.diningCheck.payment?.isPaid)
+    };
+  }
 
   if (includeTimeline && Array.isArray(order.timeline) && order.timeline.length > 0) {
     result.timeline = order.timeline.map((entry) => ({
@@ -175,9 +181,12 @@ function serializeOrderForEmployee(order, employee = null) {
     };
   }
 
-  return {
+  const diningCheckId = (order.diningCheck?._id || order.diningCheck)?.toString() || null;
+
+  const result = {
     id: order._id || order.id,
     orderNumber: order.orderNumber,
+    diningCheckId,
     customer: order.customer,
     table: tableObj,
     items: (order.items || []).map((item) => ({
@@ -202,7 +211,6 @@ function serializeOrderForEmployee(order, employee = null) {
     availableAction,
     kitchen: order.kitchen,
     service: order.service,
-    payment: order.payment,
     timeline: order.timeline,
     customerNotes: order.customerNotes || '',
     cancellation: order.cancellation?.cancelledAt ? order.cancellation : null,
@@ -210,6 +218,17 @@ function serializeOrderForEmployee(order, employee = null) {
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   };
+
+  if (order.diningCheck && typeof order.diningCheck === 'object' && order.diningCheck._id) {
+    result.diningCheck = {
+      id: order.diningCheck._id.toString(),
+      total: order.diningCheck.totals?.total ?? 0,
+      currency: order.diningCheck.totals?.currency || 'ETB',
+      isPaid: Boolean(order.diningCheck.payment?.isPaid)
+    };
+  }
+
+  return result;
 }
 
 /**
@@ -231,17 +250,19 @@ function serializeOrderRealtimeSummary(order) {
 
 /**
  * Serializes order specifically for payment settlement responses.
- * Returns only the necessary data: id, orderNumber, table, pricing, payment, step, state, and updatedAt.
  * 
  * @param {object} order 
+ * @param {object|null} diningCheck
  * @returns {object}
  */
-function serializeOrderPaymentResponse(order) {
+function serializeOrderPaymentResponse(order, diningCheck = null) {
   if (!order) return null;
+  const check = diningCheck || (order.diningCheck && typeof order.diningCheck === 'object' ? order.diningCheck : null);
 
   return {
     id: (order._id || order.id).toString(),
     orderNumber: order.orderNumber,
+    diningCheckId: check ? (check._id || check.id).toString() : (order.diningCheck?.toString() || null),
     table: formatTable(order.table),
     pricing: {
       subtotal: order.pricing?.subtotal || 0,
@@ -251,12 +272,12 @@ function serializeOrderPaymentResponse(order) {
       total: order.pricing?.total || 0,
       currency: order.pricing?.currency || 'ETB'
     },
-    payment: {
-      status: order.payment?.status,
-      method: order.payment?.method,
-      paidAt: order.payment?.paidAt || null,
-      proofUrl: order.payment?.proofUrl || null
-    },
+    payment: check ? {
+      isPaid: Boolean(check.payment?.isPaid),
+      method: check.payment?.method || null,
+      paidAt: check.payment?.paidAt || null,
+      proofUrl: check.payment?.proofUrl || null
+    } : null,
     currentStepKey: order.currentStepKey,
     systemState: order.systemState,
     updatedAt: order.updatedAt

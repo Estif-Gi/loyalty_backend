@@ -1,12 +1,19 @@
 const mongoose = require('mongoose');
 const Order = require('../model/order');
+const DiningCheck = require('../model/diningCheck');
 const { resolveNextTransition } = require('../services/orderWorkflowService');
 const { ORDER_ERROR_CODES, SYSTEM_STATES, PAYMENT_STATUSES, PAYMENT_METHODS } = require('../constants/orders');
 
 const Restaurant = require('../model/restaurant');
 
 const { serializeOrderForEmployee, serializeOrderPaymentResponse } = require('../serializers/orderSerializer');
-const { emitOrderUpdated, emitOrderCancelled } = require('../services/orderRealtimeService');
+const {
+  emitOrderUpdated,
+  emitOrderCancelled,
+  emitDiningCheckUpdated,
+  emitDiningChecksInvalidated
+} = require('../services/orderRealtimeService');
+const { recalculateDiningCheckTotals } = require('../services/diningCheckService');
 
 exports.getEmployeeOrders = async (req, res) => {
   try {
@@ -65,6 +72,7 @@ exports.getEmployeeOrders = async (req, res) => {
       .populate('table', 'name code')
       .populate('customer', 'name phone')
       .populate('service.waiter', 'name role')
+      .populate('diningCheck')
       .sort(sortOrder);
 
     // Filter queue based on step role visibility and waiter table assignment
@@ -211,8 +219,8 @@ exports.advanceOrder = async (req, res) => {
           }
         }
       },
-      { new: true }
-    ).populate('table', 'name code');
+      { returnDocument: 'after' }
+    ).populate('table', 'name code').populate('diningCheck');
 
     if (!updatedOrder) {
       return res.status(409).json({
@@ -280,6 +288,18 @@ exports.cancelOrder = async (req, res) => {
       });
     }
 
+    // Verify DiningCheck is not already paid (Section 19)
+    if (order.diningCheck) {
+      const check = await DiningCheck.findById(order.diningCheck);
+      if (check && check.payment && check.payment.isPaid) {
+        return res.status(409).json({
+          success: false,
+          error: ORDER_ERROR_CODES.DINING_CHECK_ALREADY_PAID,
+          message: 'Cannot cancel an order on an already paid dining check.'
+        });
+      }
+    }
+
     order.systemState = SYSTEM_STATES.CANCELLED;
     order.cancellation = {
       reason: reason || 'Cancelled by staff override',
@@ -298,6 +318,13 @@ exports.cancelOrder = async (req, res) => {
     });
 
     await order.save();
+
+    // Recalculate DiningCheck totals and emit realtime events (Sections 18, 39)
+    if (order.diningCheck) {
+      const updatedCheck = await recalculateDiningCheckTotals(order.diningCheck);
+      emitDiningCheckUpdated(updatedCheck);
+      emitDiningChecksInvalidated(order.restaurant);
+    }
 
     emitOrderCancelled(order, { reason: order.cancellation?.reason });
 

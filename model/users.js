@@ -25,7 +25,9 @@ const userSchema = new Schema({
         resName: { type: String  },
         stamps: {  type: Number, default: 0, min: 0 }
     }],
-    fcmToken: { type: String, default: null }
+    fcmToken: { type: String, default: null },
+    lastLoginAt: { type: Date, default: null },
+    lastSeenAt: { type: Date, default: null }
 }, { timestamps: true }); // Good practice for tracking user creation
 
 // Automatically normalize phone number before validation and saving
